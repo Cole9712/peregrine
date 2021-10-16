@@ -5,8 +5,9 @@ CFLAGS=-O3 -std=c++2a -Wall -Wextra -Wpedantic -fPIC -fconcepts -I$(ROOT_DIR)/co
 OBJ=core/DataGraph.o core/PO.o core/utils.o core/PatternGenerator.o $(ROOT_DIR)/core/showg.o
 OUTDIR=bin/
 CC=g++
+MPICXX = mpic++
 
-all: bliss fsm count test existence-query convert_data
+all: bliss fsm count test existence-query convert_data count_dist
 
 core/roaring.o: core/roaring/roaring.c
 	gcc -c core/roaring/roaring.c -o $@ -O3 -Wall -Wextra -Wpedantic -fPIC 
@@ -34,6 +35,9 @@ test: core/test.cc $(OBJ) core/DataConverter.o core/roaring.o bliss
 
 convert_data: core/convert_data.cc core/DataConverter.o core/utils.o
 	$(CC) -o $(OUTDIR)/$@ $? $(LDFLAGS) $(CFLAGS)
+
+count_dist: apps/count_dist.cc $(OBJ) bliss
+	$(MPICXX) apps/count_dist.cc $(OBJ) -o $(OUTDIR)/$@ $(BLISS_LDFLAGS) $(LDFLAGS) $(CFLAGS)
 
 bliss:
 	make -C ./core/bliss-0.73
