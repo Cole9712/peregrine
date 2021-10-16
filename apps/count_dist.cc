@@ -50,6 +50,9 @@ int main(int argc, char *argv[])
   std::vector<std::string> result_pattern;
   std::vector<uint64_t> result_counts;
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  auto t1 = utils::get_timestamp();
+
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
   if (is_directory(data_graph_name))
   {
@@ -75,11 +78,17 @@ int main(int argc, char *argv[])
     MPI_Reduce(&result_counts[i], &reduced_sum[i], 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
   }
 
+  auto t2 = utils::get_timestamp();
+
   if (world_rank == 0) {
+    utils::Log{} << "-------" << "\n";
+    utils::Log{} << "all patterns finished after " << (t2-t1)/1e6 << "s" << "\n";
+
     for (int i = 0; i < result.size(); i++) {
-      printf("%d\n", reduced_sum[i]);
+      std::cout << result[i].first << ": " << reduced_sum[i] << std::endl;
     }
   }
+  
 
   MPI_Finalize();
   return 0;

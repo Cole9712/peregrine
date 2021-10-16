@@ -1063,9 +1063,11 @@ namespace Peregrine
     else
     {
       dg = new DataGraph(data_graph);
-      utils::Log{} << "Finished reading datagraph: |V| = " << dg->get_vertex_count()
+      if (my_rank == 0) {
+        utils::Log{} << "Finished reading datagraph: |V| = " << dg->get_vertex_count()
                 << " |E| = " << dg->get_edge_count()
                 << "\n";
+      }
     }
 
     dg->set_rbi(new_patterns.front());
@@ -1090,9 +1092,9 @@ namespace Peregrine
         num_tasks += all_tasks_num % (world_size);
       }
       endPt = startPt + num_tasks;
-      printf("PID:%d StartPt:%d NumTasks:%d\n", my_rank, startPt, num_tasks);
-      uint64_t tmp = Context::task_ctr;
-      printf("Context ctr:%ld\n", tmp);
+      // printf("PID:%d StartPt:%d NumTasks:%d\n", my_rank, startPt, num_tasks);
+      // uint64_t tmp = Context::task_ctr;
+      // printf("Context ctr:%ld\n", tmp);
     }
 
     for (uint32_t i = 0; i < nworkers; ++i)
@@ -1144,8 +1146,12 @@ namespace Peregrine
       delete dg;
     }
 
-    utils::Log{} << "-------" << "\n";
-    utils::Log{} << "all patterns finished after " << (t2-t1)/1e6 << "s" << "\n";
+    // prints only if its on single machine
+    if (world_size == 1) {
+      utils::Log{} << "-------" << "\n";
+      utils::Log{} << "all patterns finished after " << (t2-t1)/1e6 << "s" << "\n";
+    }
+    
 
 
     return results;
