@@ -1145,14 +1145,7 @@ namespace Peregrine
     {
       delete dg;
     }
-
-    // prints only if its on single machine
-    if (world_size == 1) {
-      utils::Log{} << "-------" << "\n";
-      utils::Log{} << "all patterns finished after " << (t2-t1)/1e6 << "s" << "\n";
-    }
     
-
 
     return results;
   }
