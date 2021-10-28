@@ -14,6 +14,11 @@
 #include "utils.hh"
 #include "./bliss-0.73/graph.hh"
 
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/serialization/unordered_map.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/serialization.hpp>
 
 namespace Peregrine
 {
@@ -36,6 +41,7 @@ namespace Peregrine
   class SmallGraph
   {
     private:
+      friend class boost::serialization::access;
       friend class AnalyzedPattern;
       friend struct ::Peregrine::PatternGenerator;
       friend class ::Peregrine::DataGraph;
@@ -43,6 +49,11 @@ namespace Peregrine
       std::unordered_map<uint32_t, std::vector<uint32_t>> anti_adj_list;
       std::vector<uint32_t> labels;
       Graph::Labelling labelling = Graph::UNLABELLED;
+      template<class Archieve>
+      void serialize(Archieve &ar, const unsigned int version)
+      {
+        ar & true_adj_list & anti_adj_list & labels & labelling;
+      }
     public:
       friend std::ostream &operator<<(std::ostream &os, const SmallGraph &p)
       {
