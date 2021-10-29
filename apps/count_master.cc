@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 
   zmq::context_t ctx;
   zmq::socket_t sock(ctx, zmq::socket_type::rep);
-  sock.bind("tcp://127.0.0.1:" + bindPort);
+  sock.bind("tcp://*:" + bindPort);
 
   std::vector<Peregrine::SmallGraph> patterns;
   if (auto end = pattern_name.rfind("motifs"); end != std::string::npos)

@@ -96,7 +96,6 @@ int main(int argc, char *argv[])
   const std::string pattern_name(argv[2]);
   size_t nthreads = argc < 4 ? 1 : std::stoi(argv[3]);
   const std::string remoteAddr(argv[4]);
-  auto t1 = utils::get_timestamp();
 
   zmq::context_t ctx;
   zmq::socket_t sock(ctx, zmq::socket_type::req);
@@ -112,8 +111,9 @@ int main(int argc, char *argv[])
   zmq::message_t recv_msg(2048);
   auto recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
 
-  std::cout << "Data: " << recv_msg.to_string() << std::endl;
-  std::cout << "Size: " << recv_msg.size() << std::endl;
+  // std::cout << "Data: " << recv_msg.to_string() << std::endl;
+  // std::cout << "Size: " << recv_msg.size() << std::endl;
+  auto t1 = utils::get_timestamp();
 
   MsgPayload deserialized = deserialize<MsgPayload>(recv_msg.to_string());
   std::vector<Peregrine::SmallGraph> patterns = deserialized.getSmallGraphs();
@@ -145,8 +145,8 @@ int main(int argc, char *argv[])
 
   auto t2 = utils::get_timestamp();
 
-  // utils::Log{} << "-------" << "\n";
-  // utils::Log{} << "all patterns finished after " << (t2-t1)/1e6 << "s" << "\n";
+  utils::Log{} << "-------" << "\n";
+  utils::Log{} << "Time taken: " << (t2-t1)/1e6 << "s" << "\n";
 
   return 0;
 }
