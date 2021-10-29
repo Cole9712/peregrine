@@ -20,13 +20,15 @@ class MsgPayload
 {
 private:
   friend class boost::serialization::access;
+  int msgType;
   std::vector<Peregrine::SmallGraph> smGraph;
   std::string payload0;
   std::string payload1;
+  std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
   template <class Archive>
   void serialize(Archive &a, const unsigned version)
   {
-    a &smGraph &payload0 &payload1;
+    a & msgType &smGraph &payload0 &payload1 &result;
   }
 
 public:
@@ -36,6 +38,8 @@ public:
   {
     return smGraph;
   }
+
+  int getType() { return msgType; }
 
   std::string getPayload0()
   {
@@ -47,24 +51,9 @@ public:
     return payload1;
   }
 
-  MsgPayload(std::vector<Peregrine::SmallGraph> i, std::string x, std::string y = "") : smGraph(i), payload0(x), payload1(y) {}
-};
-
-class FinalResult {
-private:
-  friend class boost::serialization::access;
-  std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
-  template <class Archive>
-  void serialize(Archive &a, const unsigned version)
-  {
-    a & result;
-  }
-
-public:
-  FinalResult() {}
-  FinalResult(std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> input) : result(input) {}
-
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> getResult() { return result; }
+
+  MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, std::string x, std::string y, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result) : msgType(type), smGraph(i), payload0(x), payload1(y), result(result) {}
 };
 
 template <class T>
@@ -113,17 +102,20 @@ int main(int argc, char *argv[])
   zmq::socket_t sock(ctx, zmq::socket_type::req);
   std::cout << "Connecting to " << remoteAddr << std::endl;
   sock.connect(remoteAddr);
-  zmq::message_t msg("hey!", 4);
-  auto res = sock.send(msg, zmq::send_flags::none);
+
+  MsgPayload init_payload = MsgPayload(0, std::vector<Peregrine::SmallGraph>(), "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+  std::string init_serial = serialize<MsgPayload>(init_payload);
+  zmq::mutable_buffer send_buf = zmq::buffer(init_serial);
+  auto res = sock.send(send_buf, zmq::send_flags::none);
 
   // recv patterns from master node
-  msg.rebuild(2048);
-  auto recv_res = sock.recv(msg, zmq::recv_flags::none);
+  zmq::message_t recv_msg(2048);
+  auto recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
 
-  std::cout << "Data: " << msg.to_string() << std::endl;
-  std::cout << "Size: " << msg.size() << std::endl;
+  std::cout << "Data: " << recv_msg.to_string() << std::endl;
+  std::cout << "Size: " << recv_msg.size() << std::endl;
 
-  MsgPayload deserialized = deserialize<MsgPayload>(msg.to_string());
+  MsgPayload deserialized = deserialize<MsgPayload>(recv_msg.to_string());
   std::vector<Peregrine::SmallGraph> patterns = deserialized.getSmallGraphs();
 
   std::vector<std::string> result_pattern;
@@ -141,11 +133,13 @@ int main(int argc, char *argv[])
   }
 
   // send back the result to the server
-  FinalResult resultToSend(result);
-  std::string serializedResult = serialize<FinalResult>(resultToSend);
-  zmq::mutable_buffer send_buf = zmq::buffer(serializedResult);
+  MsgPayload resultToSend(1, std::vector<Peregrine::SmallGraph>(), "", "", result);
+  
+  std::string serializedResult = serialize<MsgPayload>(resultToSend);
+  // std::cout << serializedResult << std::endl;
+  send_buf = zmq::buffer(serializedResult);
   res = sock.send(send_buf, zmq::send_flags::none);
-  recv_res = sock.recv(msg, zmq::recv_flags::none);
+  recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
 
   std::cout << "Result has been sent to server." << std::endl;
 
