@@ -16,6 +16,14 @@
 
 #include "Peregrine.hh"
 
+namespace MsgTypes {
+  enum type {
+    handshake = 0,
+    transmit = 1,
+    goodbye = 2,
+  };
+};
+
 class MsgPayload
 {
 private:
@@ -88,7 +96,7 @@ int main(int argc, char *argv[])
 {
   if (argc < 3)
   {
-    std::cerr << "USAGE: " << argv[0] << " <data graph> <pattern | #-motifs | #-clique> <# workers> <bind port>" << std::endl;
+    std::cerr << "USAGE: " << argv[0] << " <data graph> <pattern | #-motifs | #-clique> <# workers> <bind port> <# patterns per request>" << std::endl;
     return -1;
   }
 
@@ -96,8 +104,8 @@ int main(int argc, char *argv[])
   const std::string pattern_name(argv[2]);
   size_t nworkers = std::stoi(argv[3]);
   const std::string bindPort(argv[4]);
+  int nPatterns = std::stoi(argv[5]);
 
-  auto t1 = utils::get_timestamp();
 
   zmq::context_t ctx;
   zmq::socket_t sock(ctx, zmq::socket_type::rep);
@@ -126,21 +134,49 @@ int main(int argc, char *argv[])
 
   zmq::message_t recv_msg(2048);
   int connectClients = 0;
-  for (int i = 0; i < nworkers * 2; ++i)
+  int stoppedClients = 0;
+  uint64_t vecPtr = 0;
+  bool patternsSoldOut = false;
+  auto t1 = utils::get_timestamp();
+  while (stoppedClients < nworkers)
   {
     auto res = sock.recv(recv_msg, zmq::recv_flags::none);
     auto recved_payload = deserialize<MsgPayload>(recv_msg.to_string());
-    if (recved_payload.getType() == 0) {
-      MsgPayload init_payload(0, patterns, std::to_string(connectClients), std::to_string(nworkers), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
-      // std::cout << serialize<MsgPayload>(init_payload) << std::endl;
-      std::string serialized = serialize(init_payload);
+    if (recved_payload.getType() == MsgTypes::handshake) {
+      MsgPayload sent_payload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+      std::string serialized = serialize(sent_payload);
       zmq::mutable_buffer send_buf = zmq::buffer(serialized);
       auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
       connectClients++;
+    } else if (recved_payload.getType() == MsgTypes::transmit) {
+      int endPos = vecPtr + nPatterns;
+      if (patternsSoldOut) {
+        MsgPayload sent_payload(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+        std::string serialized = serialize(sent_payload);
+        zmq::mutable_buffer send_buf = zmq::buffer(serialized);
+        auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+      } else if (endPos > patterns.size()){
+        std::vector<Peregrine::SmallGraph> sent_vec(patterns.begin()+vecPtr, patterns.end());
+        patternsSoldOut = true;
+        MsgPayload sent_payload(MsgTypes::transmit, sent_vec, "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+        std::string serialized = serialize(sent_payload);
+        zmq::mutable_buffer send_buf = zmq::buffer(serialized);
+        auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+      } else {
+        std::vector<Peregrine::SmallGraph> sent_vec(patterns.begin()+vecPtr, patterns.begin()+endPos);
+        MsgPayload sent_payload(MsgTypes::transmit, sent_vec, "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+        std::string serialized = serialize(sent_payload);
+        zmq::mutable_buffer send_buf = zmq::buffer(serialized);
+        auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+        vecPtr += nPatterns;
+      }
     } else {
       // received result from worker
       zmq::message_t msg;
       auto res2 = sock.send(msg, zmq::send_flags::dontwait);
+      stoppedClients++;
+      utils::Log{} << "stoppedClients++"
+              << "\n";
       auto workerResult = recved_payload.getResult();
       // std::cout << recv_msg.to_string() << std::endl;
       for (int i = 0; i < workerResult.size(); i++)
