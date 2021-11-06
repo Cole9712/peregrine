@@ -94,7 +94,6 @@ int main(int argc, char *argv[])
 
   while (step < k && !patterns.empty())
   {
-    std::cout << "Pattern vector length: " << patterns.size() << std::endl;
     freq_patterns.clear();
     supports.clear();
     auto psupps = Peregrine::match<Peregrine::Pattern, Domain, Peregrine::AT_THE_END, Peregrine::UNSTOPPABLE>(dg, patterns, nthreads, process, view);

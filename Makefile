@@ -42,6 +42,12 @@ count_worker: apps/count_worker.cc $(OBJ) bliss
 count_master: apps/count_master.cc $(OBJ) bliss
 	$(CC) apps/count_master.cc $(OBJ) -o $(OUTDIR)/$@ $(BLISS_LDFLAGS) $(LDFLAGS) $(CFLAGS) $(DISTFLAGS)
 
+fsm_master: apps/fsm_master.cc $(OBJ) core/roaring.o bliss
+	$(CC) apps/fsm_master.cc $(OBJ) core/roaring.o -o $(OUTDIR)/$@ $(BLISS_LDFLAGS) $(LDFLAGS) $(CFLAGS) $(DISTFLAGS)
+
+fsm_worker: apps/fsm_worker.cc $(OBJ) core/roaring.o bliss
+	$(CC) apps/fsm_worker.cc $(OBJ) core/roaring.o -o $(OUTDIR)/$@ $(BLISS_LDFLAGS) $(LDFLAGS) $(CFLAGS) $(DISTFLAGS)
+
 bliss:
 	make -C ./core/bliss-0.73
 
