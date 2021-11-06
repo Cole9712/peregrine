@@ -1061,9 +1061,9 @@ namespace Peregrine
     else
     {
       dg = new DataGraph(data_graph);
-      utils::Log{} << "Finished reading datagraph: |V| = " << dg->get_vertex_count()
-                << " |E| = " << dg->get_edge_count()
-                << "\n";
+      // utils::Log{} << "Finished reading datagraph: |V| = " << dg->get_vertex_count()
+      //           << " |E| = " << dg->get_edge_count()
+      //           << "\n";
     }
 
     dg->set_rbi(new_patterns.front());
@@ -1118,8 +1118,8 @@ namespace Peregrine
       delete dg;
     }
 
-    utils::Log{} << "-------" << "\n";
-    utils::Log{} << "all patterns finished after " << (t2-t1)/1e6 << "s" << "\n";
+    // utils::Log{} << "-------" << "\n";
+    // utils::Log{} << "all patterns finished after " << (t2-t1)/1e6 << "s" << "\n";
 
 
     return results;
