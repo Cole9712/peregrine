@@ -16,16 +16,6 @@
 
 #include "Peregrine.hh"
 
-namespace MsgTypes
-{
-  enum type
-  {
-    handshake = 0,
-    transmit = 1,
-    goodbye = 2,
-  };
-};
-
 class MsgPayload
 {
 private:
@@ -66,26 +56,6 @@ public:
   MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, std::string x, std::string y, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result) : msgType(type), smGraph(i), payload0(x), payload1(y), result(result) {}
 };
 
-template <class T>
-std::string serialize(T &dg)
-{
-  std::stringstream ss;
-  boost::archive::text_oarchive oa(ss);
-  oa << dg;
-  return ss.str();
-}
-
-template <class T>
-T deserialize(std::string input)
-{
-  std::stringstream ss(input);
-  boost::archive::text_iarchive ia(ss);
-
-  T obj;
-  ia >> obj;
-  return obj;
-}
-
 bool is_directory(const std::string &path)
 {
   struct stat statbuf;
@@ -112,7 +82,7 @@ int main(int argc, char *argv[])
   sock.connect(remoteAddr);
 
   MsgPayload init_payload = MsgPayload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
-  std::string init_serial = serialize<MsgPayload>(init_payload);
+  std::string init_serial = boost_utils::serialize<MsgPayload>(init_payload);
   zmq::mutable_buffer send_buf = zmq::buffer(init_serial);
   auto res = sock.send(send_buf, zmq::send_flags::none);
   zmq::message_t recv_msg(2048);
@@ -121,7 +91,7 @@ int main(int argc, char *argv[])
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> tmpResult;
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
   MsgPayload sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
-  std::string sent_serial = serialize<MsgPayload>(sent_payload);
+  std::string sent_serial = boost_utils::serialize<MsgPayload>(sent_payload);
   zmq::mutable_buffer transmit_buf = zmq::buffer(sent_serial);
 
   auto t1 = utils::get_timestamp();
@@ -130,13 +100,13 @@ int main(int argc, char *argv[])
     // request new patterns from master node
     res = sock.send(transmit_buf, zmq::send_flags::none);
     recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
-    MsgPayload deserialized = deserialize<MsgPayload>(recv_msg.to_string());
+    MsgPayload deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     // receive command to end
     if (deserialized.getType() == MsgTypes::goodbye)
     {
       // send back result, and say bye to server
       MsgPayload resultToSend(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), "", "", result);
-      std::string serializedResult = serialize<MsgPayload>(resultToSend);
+      std::string serializedResult = boost_utils::serialize<MsgPayload>(resultToSend);
       // std::cout << serializedResult << std::endl;
       send_buf = zmq::buffer(serializedResult);
       res = sock.send(send_buf, zmq::send_flags::none);

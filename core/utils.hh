@@ -13,6 +13,12 @@
 #include <sys/time.h>
 #include <mutex>
 
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/serialization/unordered_map.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/serialization.hpp>
+
 namespace utils
 {
 
@@ -111,6 +117,40 @@ bool bsearch(const std::vector<T> &vlist, T key) {
   return std::binary_search(vlist.begin(), vlist.end(), key);
 }
 
+
+
 } // namespace utils
+
+namespace boost_utils {
+template <class T>
+std::string serialize(T &dg)
+{
+  std::stringstream ss;
+  boost::archive::text_oarchive oa(ss);
+  oa << dg;
+  return ss.str();
+}
+
+template <class T>
+T deserialize(std::string input)
+{
+  std::stringstream ss(input);
+  boost::archive::text_iarchive ia(ss);
+
+  T obj;
+  ia >> obj;
+  return obj;
+}
+}
+
+namespace MsgTypes
+{
+  enum type
+  {
+    handshake = 0,
+    transmit = 1,
+    goodbye = 2,
+  };
+};
 
 #endif

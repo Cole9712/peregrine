@@ -16,14 +16,6 @@
 
 #include "Peregrine.hh"
 
-namespace MsgTypes {
-  enum type {
-    handshake = 0,
-    transmit = 1,
-    goodbye = 2,
-  };
-};
-
 class MsgPayload
 {
 private:
@@ -64,25 +56,6 @@ public:
   MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, std::string x, std::string y, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result) : msgType(type), smGraph(i), payload0(x), payload1(y), result(result) {}
 };
 
-template <class T>
-std::string serialize(T &dg)
-{
-  std::stringstream ss;
-  boost::archive::text_oarchive oa(ss);
-  oa << dg;
-  return ss.str();
-}
-
-template <class T>
-T deserialize(std::string input)
-{
-  std::stringstream ss(input);
-  boost::archive::text_iarchive ia(ss);
-
-  T obj;
-  ia >> obj;
-  return obj;
-}
 
 bool is_directory(const std::string &path)
 {
@@ -141,10 +114,10 @@ int main(int argc, char *argv[])
   while (stoppedClients < nworkers)
   {
     auto res = sock.recv(recv_msg, zmq::recv_flags::none);
-    auto recved_payload = deserialize<MsgPayload>(recv_msg.to_string());
+    auto recved_payload = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     if (recved_payload.getType() == MsgTypes::handshake) {
       MsgPayload sent_payload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
-      std::string serialized = serialize(sent_payload);
+      std::string serialized = boost_utils::serialize(sent_payload);
       zmq::mutable_buffer send_buf = zmq::buffer(serialized);
       auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
       connectClients++;
@@ -152,20 +125,20 @@ int main(int argc, char *argv[])
       int endPos = vecPtr + nPatterns;
       if (patternsSoldOut) {
         MsgPayload sent_payload(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
-        std::string serialized = serialize(sent_payload);
+        std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
         auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
       } else if (endPos > patterns.size()){
         std::vector<Peregrine::SmallGraph> sent_vec(patterns.begin()+vecPtr, patterns.end());
         patternsSoldOut = true;
         MsgPayload sent_payload(MsgTypes::transmit, sent_vec, "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
-        std::string serialized = serialize(sent_payload);
+        std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
         auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
       } else {
         std::vector<Peregrine::SmallGraph> sent_vec(patterns.begin()+vecPtr, patterns.begin()+endPos);
         MsgPayload sent_payload(MsgTypes::transmit, sent_vec, "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
-        std::string serialized = serialize(sent_payload);
+        std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
         auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
         vecPtr += nPatterns;
