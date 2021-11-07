@@ -150,6 +150,7 @@ namespace MsgTypes
     handshake = 0,
     transmit = 1,
     goodbye = 2,
+    wait = 3,
   };
 };
 
