@@ -28,10 +28,13 @@ private:
   std::vector<Peregrine::SmallGraph> smGraph;
   int iteration;
   std::vector<unsigned long> support;
+  int startPt;
+  int endPt;
+  std::string remark;
   template <class Archive>
   void serialize(Archive &a, const unsigned version)
   {
-    a &msgType &smGraph &iteration &support;
+    a &msgType &smGraph &iteration &support &startPt &endPt &remark;
   }
 
 public:
@@ -50,6 +53,20 @@ public:
   }
 
   std::vector<unsigned long> getSupport() { return support; }
+
+  std::string getRemark() { return remark; }
+
+  int getStartPt() { return startPt; }
+
+  int getEndPt() { return endPt; }
+
+  void setRemark(const std::string input) { remark = input; }
+
+  void setRange(int start, int end)
+  {
+    startPt = start;
+    endPt = end;
+  }
 
   MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, int x, std::vector<unsigned long> s) : msgType(type), smGraph(i), iteration(x), support(s) {}
 };
@@ -97,7 +114,7 @@ int main(int argc, char *argv[])
   auto t1 = utils::get_timestamp();
   while (true)
   {
-    // request new patterns from master node
+    // request new range from master node
     std::string sent_serial = boost_utils::serialize<MsgPayload>(sent_payload);
     zmq::mutable_buffer transmit_buf = zmq::buffer(sent_serial);
     res = sock.send(transmit_buf, zmq::send_flags::none);
@@ -116,10 +133,11 @@ int main(int argc, char *argv[])
     }
     else
     {
-      std::cout << "Pattern vector length: " << deserialized.getSmallGraphs().size() << std::endl;
+      // std::cout << "Pattern vector length: " << deserialized.getSmallGraphs().size() << std::endl;
       freq_patterns.clear();
       supports.clear();
-      auto psupps = Peregrine::match<Peregrine::Pattern, Domain, Peregrine::AT_THE_END, Peregrine::UNSTOPPABLE>(dg, deserialized.getSmallGraphs(), nthreads, process, view);
+      auto psupps = Peregrine::match<Peregrine::Pattern, Domain, Peregrine::AT_THE_END, Peregrine::UNSTOPPABLE>(dg, 
+        deserialized.getSmallGraphs(), nthreads, process, view, deserialized.getStartPt(), deserialized.getEndPt());
 
       for (const auto &[p, supp] : psupps)
       {
@@ -129,6 +147,7 @@ int main(int argc, char *argv[])
           supports.push_back(supp);
         }
       }
+      std::cout << "Vector length: " << freq_patterns.size() << " " << supports.size() << std::endl;
       sent_payload = MsgPayload(MsgTypes::transmit, freq_patterns, local_step, supports);
     }
   }

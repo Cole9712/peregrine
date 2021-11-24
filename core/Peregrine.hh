@@ -63,6 +63,8 @@ namespace Peregrine
     DataGraph *data_graph;
     std::atomic<uint64_t> task_ctr(0);
     std::atomic<uint64_t> gcount(0);
+    int startPt = -1;
+    int endPt = -1;
   }
 
   struct flag_t { bool on, working; };
@@ -89,9 +91,14 @@ namespace Peregrine
     typename HandleType>
   inline void match_loop(std::stop_token stoken, DataGraph *dg, const Func &process, std::vector<std::vector<uint32_t>> &cands, HandleType &a)
   {
+    uint64_t num_tasks;
     uint32_t vgs_count = dg->get_vgs_count();
-    uint32_t num_vertices = dg->get_vertex_count();
-    uint64_t num_tasks = num_vertices * vgs_count;
+    if (Context::endPt == -1) {
+      uint32_t num_vertices = dg->get_vertex_count();
+      num_tasks = num_vertices * vgs_count;
+    } else {
+      num_tasks = Context::endPt;
+    }
 
     uint64_t task = 0;
     while ((task = Context::task_ctr.fetch_add(1, std::memory_order_relaxed) + 1) <= num_tasks)
@@ -116,9 +123,14 @@ namespace Peregrine
   template <Graph::Labelling L, bool has_anti_vertices>
   inline uint64_t count_loop(DataGraph *dg, std::vector<std::vector<uint32_t>> &cands)
   {
+    uint64_t num_tasks;
     uint32_t vgs_count = dg->get_vgs_count();
-    uint32_t num_vertices = dg->get_vertex_count();
-    uint64_t num_tasks = num_vertices * vgs_count;
+    if (Context::endPt == -1) {
+      uint32_t num_vertices = dg->get_vertex_count();
+      num_tasks = num_vertices * vgs_count;
+    } else {
+      num_tasks = Context::endPt;
+    }
 
     uint64_t lcount = 0;
 
@@ -425,11 +437,20 @@ namespace Peregrine
       const std::vector<SmallGraph> &patterns,
       uint32_t nworkers,
       PF &&process,
-      VF viewer = default_viewer<GivenAggValueT>)
+      VF viewer = default_viewer<GivenAggValueT>,
+      int startPt = -1,
+      int endPt = -1)
   {
     if (patterns.empty())
     {
       return {};
+    }
+
+    if (startPt != -1) {
+      Context::startPt = startPt;
+      Context::endPt = endPt;
+    } else {
+      Context::startPt = 0;
     }
 
     // automatically wrap trivial types so they have .reset() etc
@@ -573,7 +594,7 @@ namespace Peregrine
     for (const auto &p : patterns)
     {
       // reset state
-      Context::task_ctr = 0;
+      Context::task_ctr = Context::startPt;
 
       // set new pattern
       dg->set_rbi(p);
@@ -728,7 +749,7 @@ namespace Peregrine
     for (const auto &p : patterns)
     {
       // reset state
-      Context::task_ctr = 0;
+      Context::task_ctr = Context::startPt;
 
       // set new pattern
       dg->set_rbi(p);
@@ -873,7 +894,7 @@ namespace Peregrine
     for (const auto &p : patterns)
     {
       // reset state
-      Context::task_ctr = 0;
+      Context::task_ctr = Context::startPt;
 
       // set new pattern
       dg->set_rbi(p);
