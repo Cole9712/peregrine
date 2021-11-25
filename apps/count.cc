@@ -4,13 +4,12 @@
 
 #include "Peregrine.hh"
 
-
 bool is_directory(const std::string &path)
 {
-   struct stat statbuf;
-   if (stat(path.c_str(), &statbuf) != 0)
-       return 0;
-   return S_ISDIR(statbuf.st_mode);
+  struct stat statbuf;
+  if (stat(path.c_str(), &statbuf) != 0)
+    return 0;
+  return S_ISDIR(statbuf.st_mode);
 }
 
 int main(int argc, char *argv[])
@@ -28,14 +27,14 @@ int main(int argc, char *argv[])
   std::vector<Peregrine::SmallGraph> patterns;
   if (auto end = pattern_name.rfind("motifs"); end != std::string::npos)
   {
-    auto k = std::stoul(pattern_name.substr(0, end-1));
+    auto k = std::stoul(pattern_name.substr(0, end - 1));
     patterns = Peregrine::PatternGenerator::all(k,
-        Peregrine::PatternGenerator::VERTEX_BASED,
-        Peregrine::PatternGenerator::INCLUDE_ANTI_EDGES);
+                                                Peregrine::PatternGenerator::VERTEX_BASED,
+                                                Peregrine::PatternGenerator::INCLUDE_ANTI_EDGES);
   }
   else if (auto end = pattern_name.rfind("clique"); end != std::string::npos)
   {
-    auto k = std::stoul(pattern_name.substr(0, end-1));
+    auto k = std::stoul(pattern_name.substr(0, end - 1));
     patterns.emplace_back(Peregrine::PatternGenerator::clique(k));
   }
   else
@@ -43,9 +42,18 @@ int main(int argc, char *argv[])
     patterns.emplace_back(pattern_name);
   }
 
+  auto new_patterns = Peregrine::getNewPatterns(patterns);
+
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
   if (is_directory(data_graph_name))
   {
+    Peregrine::DataGraph *dg;
+    dg = new Peregrine::DataGraph(data_graph_name);
+    dg->set_rbi(new_patterns.front());
+    uint32_t vgs_count = dg->get_vgs_count();
+    uint32_t num_vertices = dg->get_vertex_count();
+    uint32_t num_tasks = num_vertices * vgs_count;
+    std::cout << "Total number of tasks:" << num_tasks << std::endl;
     result = Peregrine::count(data_graph_name, patterns, nthreads);
   }
   else

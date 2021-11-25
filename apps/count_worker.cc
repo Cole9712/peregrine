@@ -22,13 +22,13 @@ private:
   friend class boost::serialization::access;
   int msgType;
   std::vector<Peregrine::SmallGraph> smGraph;
-  std::string payload0;
-  std::string payload1;
+  int startPt;
+  int endPt;
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
   template <class Archive>
   void serialize(Archive &a, const unsigned version)
   {
-    a &msgType &smGraph &payload0 &payload1 &result;
+    a & msgType &smGraph &startPt &endPt &result;
   }
 
 public:
@@ -41,19 +41,19 @@ public:
 
   int getType() { return msgType; }
 
-  std::string getPayload0()
-  {
-    return payload0;
-  }
+  int getStartPt() { return startPt; }
 
-  std::string getPayload1()
+  int getEndPt() { return endPt; }
+
+  void setRange(int start, int end)
   {
-    return payload1;
+    startPt = start;
+    endPt = end;
   }
 
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> getResult() { return result; }
 
-  MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, std::string x, std::string y, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result) : msgType(type), smGraph(i), payload0(x), payload1(y), result(result) {}
+  MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result) : msgType(type), smGraph(i), result(result) {}
 };
 
 bool is_directory(const std::string &path)
@@ -81,16 +81,18 @@ int main(int argc, char *argv[])
   std::cout << "Connecting to " << remoteAddr << std::endl;
   sock.connect(remoteAddr);
 
-  MsgPayload init_payload = MsgPayload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+  MsgPayload init_payload = MsgPayload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
   std::string init_serial = boost_utils::serialize<MsgPayload>(init_payload);
   zmq::mutable_buffer send_buf = zmq::buffer(init_serial);
   auto res = sock.send(send_buf, zmq::send_flags::none);
   zmq::message_t recv_msg(2048);
   auto recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
+  MsgPayload handshake_deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
+  auto patterns = handshake_deserialized.getSmallGraphs();
 
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> tmpResult;
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
-  MsgPayload sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), "", "", std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+  MsgPayload sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
   std::string sent_serial = boost_utils::serialize<MsgPayload>(sent_payload);
   zmq::mutable_buffer transmit_buf = zmq::buffer(sent_serial);
 
@@ -101,11 +103,12 @@ int main(int argc, char *argv[])
     res = sock.send(transmit_buf, zmq::send_flags::none);
     recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
     MsgPayload deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
+    std::cout << "Received range:" << deserialized.getStartPt() << "-" << deserialized.getEndPt() << std::endl;
     // receive command to end
     if (deserialized.getType() == MsgTypes::goodbye)
     {
       // send back result, and say bye to server
-      MsgPayload resultToSend(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), "", "", result);
+      MsgPayload resultToSend(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), result);
       std::string serializedResult = boost_utils::serialize<MsgPayload>(resultToSend);
       // std::cout << serializedResult << std::endl;
       send_buf = zmq::buffer(serializedResult);
@@ -114,18 +117,23 @@ int main(int argc, char *argv[])
     }
     else
     {
-      std::vector<Peregrine::SmallGraph> patterns = deserialized.getSmallGraphs();
       if (is_directory(data_graph_name))
       {
-        tmpResult = Peregrine::count(data_graph_name, patterns, nthreads);
+        tmpResult = Peregrine::count(data_graph_name, patterns, nthreads, deserialized.getStartPt(), deserialized.getEndPt());
       }
       else
       {
         Peregrine::SmallGraph G(data_graph_name);
-        tmpResult = Peregrine::count(G, patterns, nthreads);
+        tmpResult = Peregrine::count(G, patterns, nthreads, deserialized.getStartPt(), deserialized.getEndPt());
       }
     }
-    result.insert(result.end(), tmpResult.begin(), tmpResult.end());
+    if (result.size() == 0) {
+      result.insert(result.end(), tmpResult.begin(), tmpResult.end());
+    } else {
+      for (int i = 0; i < result.size(); i++) {
+        result[i].second += tmpResult[i].second;
+      }
+    }
   }
 
   std::cout << "Result has been sent to server." << std::endl;

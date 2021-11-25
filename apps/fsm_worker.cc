@@ -136,9 +136,11 @@ int main(int argc, char *argv[])
       // std::cout << "Pattern vector length: " << deserialized.getSmallGraphs().size() << std::endl;
       freq_patterns.clear();
       supports.clear();
+      std::cout << "StartPt0: " << deserialized.getStartPt() << " EndPt0:" << deserialized.getEndPt() << std::endl;
       auto psupps = Peregrine::match<Peregrine::Pattern, Domain, Peregrine::AT_THE_END, Peregrine::UNSTOPPABLE>(dg, 
         deserialized.getSmallGraphs(), nthreads, process, view, deserialized.getStartPt(), deserialized.getEndPt());
 
+      std::cout << "supp length: " << psupps.size() << std::endl;
       for (const auto &[p, supp] : psupps)
       {
         if (supp >= threshold)
