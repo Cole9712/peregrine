@@ -102,7 +102,7 @@ namespace Peregrine
     }
     else
     {
-      num_tasks = Context::endPt;
+      num_tasks = Context::endPt * vgs_count;
     }
 
     uint64_t task = 0;
@@ -138,10 +138,8 @@ namespace Peregrine
     }
     else
     {
-      num_tasks = Context::endPt;
+      num_tasks = Context::endPt * vgs_count;
     }
-
-    std::cout << "NUmber of tasks: " << num_tasks << std::endl;
 
     uint64_t lcount = 0;
 
@@ -1192,12 +1190,13 @@ namespace Peregrine
     for (const auto &p : new_patterns)
     {
       // reset state
-      Context::task_ctr = Context::startPt;
+      
       Context::gcount = 0;
 
       // set new pattern
       dg->set_rbi(p);
-
+      // Context::task_ctr = Context::startPt;
+      Context::task_ctr = Context::startPt * dg->get_vgs_count();
       // begin matching
       barrier.release();
 

@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
     res = sock.send(transmit_buf, zmq::send_flags::none);
     recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
     MsgPayload deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
-    std::cout << "Received range:" << deserialized.getStartPt() << "-" << deserialized.getEndPt() << std::endl;
+    // std::cout << "Received range:" << deserialized.getStartPt() << "-" << deserialized.getEndPt() << std::endl;
     // receive command to end
     if (deserialized.getType() == MsgTypes::goodbye)
     {

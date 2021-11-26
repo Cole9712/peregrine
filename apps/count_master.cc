@@ -100,17 +100,15 @@ int main(int argc, char *argv[])
     patterns.emplace_back(pattern_name);
   }
   Peregrine::DataGraph *dg;
-  auto new_patterns = Peregrine::getNewPatterns(patterns);
   dg = new Peregrine::DataGraph(data_graph_name);
-  dg->set_rbi(new_patterns.front());
-  uint32_t vgs_count = dg->get_vgs_count();
-  uint32_t num_vertices = dg->get_vertex_count();
-  uint32_t num_tasks = num_vertices * vgs_count;
-  std::cout << "Total number of tasks:" << num_tasks << std::endl;
+  uint32_t num_tasks = dg->get_vertex_count();
+  std::cout << "Total number of Vertices:" << num_tasks << std::endl;
 
   std::vector<std::string> result_pattern;
   std::vector<uint64_t> result_counts;
 
+  // calculate the buffer size needed for receiving messages from workers
+  
   zmq::message_t recv_msg(2048);
   int connectClients = 0;
   int stoppedClients = 0;
