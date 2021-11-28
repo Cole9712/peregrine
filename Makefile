@@ -9,6 +9,12 @@ CC=g++
 
 all: bliss fsm count test existence-query convert_data count_worker count_master
 
+count_dist: count_worker count_master
+
+fsm_dist: fsm_master fsm_worker
+
+enumerate_dist: enumerate_master enumerate_worker
+
 core/roaring.o: core/roaring/roaring.c
 	gcc -c core/roaring/roaring.c -o $@ -O3 -Wall -Wextra -Wpedantic -fPIC 
 
@@ -47,6 +53,12 @@ fsm_master: apps/fsm_master.cc $(OBJ) core/roaring.o bliss
 
 fsm_worker: apps/fsm_worker.cc $(OBJ) core/roaring.o bliss
 	$(CC) apps/fsm_worker.cc $(OBJ) core/roaring.o -o $(OUTDIR)/$@ $(BLISS_LDFLAGS) $(LDFLAGS) $(CFLAGS) $(DISTFLAGS)
+
+enumerate_master: apps/enumerate_master.cc $(OBJ) core/roaring.o bliss
+	$(CC) apps/enumerate_master.cc $(OBJ) core/roaring.o -o $(OUTDIR)/$@ $(BLISS_LDFLAGS) $(LDFLAGS) $(CFLAGS) $(DISTFLAGS)
+
+enumerate_worker: apps/enumerate_worker.cc $(OBJ) core/roaring.o bliss
+	$(CC) apps/enumerate_worker.cc $(OBJ) core/roaring.o -o $(OUTDIR)/$@ $(BLISS_LDFLAGS) $(LDFLAGS) $(CFLAGS) $(DISTFLAGS)
 
 bliss:
 	make -C ./core/bliss-0.73
