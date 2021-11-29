@@ -91,7 +91,6 @@ int main(int argc, char *argv[])
   };
   std::vector<uint64_t> supports;
   std::vector<Peregrine::SmallGraph> freq_patterns;
-  Peregrine::DataGraph dg(data_graph_name);
 
   zmq::context_t ctx;
   zmq::socket_t sock(ctx, zmq::socket_type::req);
@@ -106,7 +105,6 @@ int main(int argc, char *argv[])
   zmq::message_t recv_msg(2048);
   auto recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
   MsgPayload init_deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
-  int threshold = init_deserialized.getIteration();
 
   int local_step = 0;
   MsgPayload sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), local_step, std::vector<unsigned long>());
@@ -136,20 +134,17 @@ int main(int argc, char *argv[])
       // std::cout << "Pattern vector length: " << deserialized.getSmallGraphs().size() << std::endl;
       freq_patterns.clear();
       supports.clear();
-      std::cout << "StartPt0: " << deserialized.getStartPt() << " EndPt0:" << deserialized.getEndPt() << std::endl;
+      Peregrine::DataGraph dg(data_graph_name);
+      std::cout << "StartPt: " << deserialized.getStartPt() << " EndPt:" << deserialized.getEndPt() << std::endl;
       auto psupps = Peregrine::match<Peregrine::Pattern, Domain, Peregrine::AT_THE_END, Peregrine::UNSTOPPABLE>(dg, 
         deserialized.getSmallGraphs(), nthreads, process, view, deserialized.getStartPt(), deserialized.getEndPt());
 
-      std::cout << "supp length: " << psupps.size() << std::endl;
       for (const auto &[p, supp] : psupps)
       {
-        if (supp >= threshold)
-        {
-          freq_patterns.push_back(p);
-          supports.push_back(supp);
-        }
+        freq_patterns.push_back(p);
+        supports.push_back(supp);
       }
-      std::cout << "Vector length: " << freq_patterns.size() << " " << supports.size() << std::endl;
+      // std::cout << "Vector length: " << freq_patterns.size() << " " << supports.size() << std::endl;
       sent_payload = MsgPayload(MsgTypes::transmit, freq_patterns, local_step, supports);
     }
   }

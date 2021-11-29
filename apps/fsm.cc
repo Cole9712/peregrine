@@ -54,8 +54,8 @@ int main(int argc, char *argv[])
     }
   }
 
-
-  const auto view = [](auto &&v) { return v.get_support(); };
+  const auto view = [](auto &&v)
+  { return v.get_support(); };
 
   std::vector<uint64_t> supports;
   std::vector<Peregrine::SmallGraph> freq_patterns;
@@ -67,7 +67,8 @@ int main(int argc, char *argv[])
   // initial discovery
   auto t1 = utils::get_timestamp();
   {
-    const auto process = [](auto &&a, auto &&cm) {
+    const auto process = [](auto &&a, auto &&cm)
+    {
       uint32_t merge = cm.pattern[0] == cm.pattern[1] ? 0 : 1;
       a.map(cm.pattern, std::make_pair(cm.mapping, merge));
     };
@@ -88,7 +89,8 @@ int main(int argc, char *argv[])
   auto t3 = utils::get_timestamp();
   std::vector<Peregrine::SmallGraph> patterns = Peregrine::PatternGenerator::extend(freq_patterns, extension_strategy);
 
-  const auto process = [](auto &&a, auto &&cm) {
+  const auto process = [](auto &&a, auto &&cm)
+  {
     a.map(cm.pattern, cm.mapping);
   };
 
@@ -107,8 +109,14 @@ int main(int argc, char *argv[])
         supports.push_back(supp);
       }
     }
+    for (int i = 0; i < freq_patterns.size(); i++)
+    {
+      std::cout << freq_patterns[i].to_string() << ": " << supports[i] << std::endl;
+    }
 
     patterns = Peregrine::PatternGenerator::extend(freq_patterns, extension_strategy);
+    std::cout << "Nnumber of new patterns: " << patterns.size() << std::endl;
+
     step += 1;
   }
   auto t2 = utils::get_timestamp();
@@ -119,7 +127,7 @@ int main(int argc, char *argv[])
     std::cout << freq_patterns[i].to_string() << ": " << supports[i] << std::endl;
   }
 
-  std::cout << "Part 1 finished in " << (t3-t1)/1e6 << "s" << std::endl;
-  std::cout << "Part 2 finished in " << (t2-t3)/1e6 << "s" << std::endl;
+  std::cout << "Part 1 finished in " << (t3 - t1) / 1e6 << "s" << std::endl;
+  std::cout << "Part 2 finished in " << (t2 - t3) / 1e6 << "s" << std::endl;
   return 0;
 }

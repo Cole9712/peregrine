@@ -478,6 +478,7 @@ namespace Peregrine
     else
     {
       Context::startPt = 0;
+      Context::endPt = -1;
     }
 
     // automatically wrap trivial types so they have .reset() etc
@@ -617,11 +618,12 @@ namespace Peregrine
     auto t1 = utils::get_timestamp();
     for (const auto &p : patterns)
     {
-      // reset state
-      Context::task_ctr = Context::startPt;
-
       // set new pattern
       dg->set_rbi(p);
+
+      // reset state
+      Context::task_ctr = Context::startPt * dg->get_vgs_count();
+
       Context::current_pattern = std::make_shared<AnalyzedPattern>(AnalyzedPattern(dg->rbi));
       // prepare handles for the next pattern
       aggregator.reset();
@@ -718,7 +720,7 @@ namespace Peregrine
       agg_thread.join();
     }
 
-    utils::Log{} << "-------"
+    utils::Log{} << "-------match_multi"
                  << "\n";
     utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
                  << "\n";
@@ -773,11 +775,12 @@ namespace Peregrine
     auto t1 = utils::get_timestamp();
     for (const auto &p : patterns)
     {
-      // reset state
-      Context::task_ctr = Context::startPt;
-
       // set new pattern
       dg->set_rbi(p);
+
+      // reset state
+      Context::task_ctr = Context::startPt * dg->get_vgs_count();
+
       Context::current_pattern = std::make_shared<AnalyzedPattern>(AnalyzedPattern(dg->rbi));
       // prepare handles for the next pattern
       aggregator.reset();
@@ -864,7 +867,7 @@ namespace Peregrine
       agg_thread.join();
     }
 
-    utils::Log{} << "-------"
+    utils::Log{} << "-------match_single"
                  << "\n";
     utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
                  << "\n";
@@ -919,11 +922,12 @@ namespace Peregrine
     auto t1 = utils::get_timestamp();
     for (const auto &p : patterns)
     {
-      // reset state
-      Context::task_ctr = Context::startPt;
-
       // set new pattern
       dg->set_rbi(p);
+
+      // reset state
+      Context::task_ctr = Context::startPt * dg->get_vgs_count();
+
       Context::current_pattern = std::make_shared<AnalyzedPattern>(AnalyzedPattern(dg->rbi));
       // prepare handles for the next pattern
       aggregator.reset();
@@ -1017,7 +1021,7 @@ namespace Peregrine
       agg_thread.join();
     }
 
-    utils::Log{} << "-------"
+    utils::Log{} << "-------match_vector"
                  << "\n";
     utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
                  << "\n";
@@ -1190,13 +1194,13 @@ namespace Peregrine
     for (const auto &p : new_patterns)
     {
       // reset state
-      
+
       Context::gcount = 0;
 
       // set new pattern
       dg->set_rbi(p);
-      // Context::task_ctr = Context::startPt;
       Context::task_ctr = Context::startPt * dg->get_vgs_count();
+
       // begin matching
       barrier.release();
 
