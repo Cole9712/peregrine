@@ -444,8 +444,8 @@ namespace Peregrine
 
   template <OutputOption Output, typename VF, typename AggKeyT, typename GivenAggValueT>
   using ResultType = std::conditional_t<Output == DISK,
-                                        std::vector<std::tuple<SmallGraph, decltype(std::declval<VF>()(std::declval<GivenAggValueT>())), std::filesystem::path>>,
-                                        std::vector<std::pair<OutputKeyType<AggKeyT>, decltype(std::declval<VF>()(std::declval<GivenAggValueT>()))>>>;
+                                        std::vector<std::tuple<SmallGraph, GivenAggValueT, std::filesystem::path>>,
+                                        std::vector<std::pair<SmallGraph, GivenAggValueT>>>;
 
   template <
       typename AggKeyT,
@@ -688,7 +688,7 @@ namespace Peregrine
         aggregator.get_result();
       }
 
-      for (auto &[k, v] : aggregator.latest_result)
+      for (auto &[k, v] : aggregator.global)
       {
         if constexpr (std::is_same_v<AggKeyT, Pattern>)
         {
@@ -844,7 +844,7 @@ namespace Peregrine
         aggregator.get_result();
       }
 
-      auto &&v = aggregator.latest_result.load();
+      auto &&v = aggregator.global;
       if constexpr (Output == DISK)
       {
         results.emplace_back(p, v, OutputManager<DISK>::get_path());
@@ -994,16 +994,16 @@ namespace Peregrine
       std::vector<uint32_t> ls(p.get_labels().cbegin(), p.get_labels().cend());
       uint32_t pl = dg->new_label;
       uint32_t l = 0;
-      for (auto &m : aggregator.latest_result)
+      for (auto &m : aggregator.global)
       {
         ls[pl] = aggregator.VEC_AGG_OFFSET + l;
         if constexpr (Output == DISK)
         {
-          results.emplace_back(SmallGraph(p, ls), m.load(), OutputManager<DISK>::get_path());
+          results.emplace_back(SmallGraph(p, ls), m, OutputManager<DISK>::get_path());
         }
         else
         {
-          results.emplace_back(SmallGraph(p, ls), m.load());
+          results.emplace_back(SmallGraph(p, ls), m);
         }
         l += 1;
       }

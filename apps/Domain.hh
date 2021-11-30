@@ -2,6 +2,16 @@
 #define DOMAIN_HH
 
 #include "roaring/roaring.hh"
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/shared_ptr.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/list.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/unordered_map.hpp>
+#include <boost/serialization/base_object.hpp>
 
 struct Domain
 {
@@ -92,6 +102,11 @@ struct Domain
   }
 
   std::vector<Roaring> sets;
+  template <typename Archive>
+  void serialize(Archive& ar, const unsigned int version)
+  {
+    ar & sets;
+  }
 };
 
 
@@ -135,7 +150,7 @@ struct DiscoveryDomain
     return *this;
   }
 
-  uint64_t get_support()
+  uint64_t get_support() const
   {
     uint64_t s = sets.front().cardinality();
     for (uint32_t i = 1; i < sets.size(); ++i)
@@ -158,6 +173,11 @@ struct DiscoveryDomain
   }
 
   std::vector<Roaring> sets;
+  template <typename Archive>
+  void serialize(Archive& ar, const unsigned int version)
+  {
+    ar & sets;
+  }
 };
 
 

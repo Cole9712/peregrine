@@ -26,14 +26,14 @@ private:
   int msgType;
   std::vector<Peregrine::SmallGraph> smGraph;
   int iteration;
-  std::vector<unsigned long> support;
+  std::vector<Domain> domains;
   int startPt;
   int endPt;
   std::string remark;
   template <class Archive>
   void serialize(Archive &a, const unsigned version)
   {
-    a &msgType &smGraph &iteration &support &startPt &endPt &remark;
+    a &msgType &smGraph &iteration &domains &startPt &endPt &remark;
   }
 
 public:
@@ -51,7 +51,7 @@ public:
     return iteration;
   }
 
-  std::vector<unsigned long> getSupport() { return support; }
+  std::vector<Domain> getDomains() { return domains; }
 
   std::string getRemark() { return remark; }
 
@@ -67,10 +67,11 @@ public:
     endPt = end;
   }
 
-  MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, int x, std::vector<unsigned long> s) : msgType(type), smGraph(i), iteration(x), support(s) {}
+  MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, int x, std::vector<Domain> s) : msgType(type), smGraph(i), iteration(x), domains(s) {}
 };
 
-void organize_vectors(std::vector<Peregrine::SmallGraph> &freq_patterns, std::vector<unsigned long> &support)
+template <typename T>
+void organize_vectors(std::vector<Peregrine::SmallGraph> &freq_patterns, std::vector<T> &support)
 {
   auto inputPatterns = freq_patterns;
   auto inputSupport = support;
@@ -86,8 +87,11 @@ void organize_vectors(std::vector<Peregrine::SmallGraph> &freq_patterns, std::ve
   while (inputPatterns.size() > 0)
   {
     freq_patterns.push_back(inputPatterns[0]);
-    unsigned long tmpSup = 0;
+    T tmpSup = inputSupport[0];
     std::string tmpStr = str_patterns[0];
+    str_patterns.erase(str_patterns.begin());
+    inputSupport.erase(inputSupport.begin());
+    inputPatterns.erase(inputPatterns.begin());
 
     for (int i = 0; i < str_patterns.size(); i++)
     {
@@ -165,8 +169,11 @@ int main(int argc, char *argv[])
   const auto view = [](auto &&v)
   { return v.get_support(); };
 
-  std::vector<uint64_t> supports;
+  std::vector<DiscoveryDomain<1>> supports_init;
+  std::vector<Domain> supports;
   std::vector<Peregrine::SmallGraph> freq_patterns;
+  std::vector<uint64_t> supports_result;
+  std::vector<Peregrine::SmallGraph> tmp_patterns;
 
   std::cout << k << "-FSM with threshold " << threshold << std::endl;
 
@@ -188,22 +195,35 @@ int main(int argc, char *argv[])
     auto psupps = Peregrine::match<Peregrine::Pattern, DiscoveryDomain<1>, Peregrine::AT_THE_END, Peregrine::UNSTOPPABLE>(dg, patterns, nthreads, process, view);
     for (const auto &[p, supp] : psupps)
     {
-      if (supp >= threshold)
-      {
-        freq_patterns.push_back(p);
-        supports.push_back(supp);
-      }
+      freq_patterns.push_back(p);
+      supports_init.push_back(supp);
+    }
+  }
+
+  organize_vectors<DiscoveryDomain<1>>(freq_patterns, supports_init);
+
+  // // For testing: print statistics
+  // for (int i = 0; i < freq_patterns.size(); i++)
+  // {
+  //   std::cout << freq_patterns[i].to_string() << ": " << supports_init[i].get_support() << std::endl;
+  // }
+
+  for (int i = 0; i < freq_patterns.size(); i++)
+  {
+    if (supports_init[i].get_support() >= threshold)
+    {
+      tmp_patterns.push_back(freq_patterns[i]);
     }
   }
 
   auto t3 = utils::get_timestamp();
-  std::vector<Peregrine::SmallGraph> patterns = Peregrine::PatternGenerator::extend(freq_patterns, extension_strategy);
+  std::vector<Peregrine::SmallGraph> patterns = Peregrine::PatternGenerator::extend(tmp_patterns, extension_strategy);
   freq_patterns.clear();
+  tmp_patterns.clear();
   supports.clear();
 
   uint32_t vgs_count, num_vertices;
   uint64_t all_tasks_num;
-
 
   // prepare data for worker processes
   zmq::context_t ctx;
@@ -213,7 +233,7 @@ int main(int argc, char *argv[])
   int stoppedClients = 0;
   int pausedClients = 0;
   uint64_t vecPtr = 0;
-  zmq::message_t recv_msg(2048);
+  zmq::message_t recv_msg(20000);
 
   vgs_count = dgv->get_vgs_count();
   num_vertices = dgv->get_vertex_count();
@@ -226,7 +246,7 @@ int main(int argc, char *argv[])
     auto recved_payload = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     if (recved_payload.getType() == MsgTypes::handshake)
     {
-      MsgPayload sent_payload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), 0, std::vector<unsigned long>());
+      MsgPayload sent_payload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), 0, std::vector<Domain>());
       std::string serialized = boost_utils::serialize(sent_payload);
       zmq::mutable_buffer send_buf = zmq::buffer(serialized);
       auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
@@ -237,7 +257,7 @@ int main(int argc, char *argv[])
       int endPos = vecPtr + nTasks;
       if (patterns.empty() || step >= k)
       {
-        MsgPayload sent_payload(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), 0, std::vector<unsigned long>());
+        MsgPayload sent_payload(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), 0, std::vector<Domain>());
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
         auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
@@ -246,13 +266,13 @@ int main(int argc, char *argv[])
       else if (vecPtr > all_tasks_num)
       {
         auto p = recved_payload.getSmallGraphs();
-        auto supp = recved_payload.getSupport();
+        auto domains = recved_payload.getDomains();
         for (int i = 0; i < p.size(); i++)
         {
           freq_patterns.push_back(p[i]);
-          supports.push_back(supp[i]);
+          supports.push_back(domains[i]);
         }
-        MsgPayload sent_payload(MsgTypes::wait, std::vector<Peregrine::SmallGraph>(), step + 1, std::vector<unsigned long>());
+        MsgPayload sent_payload(MsgTypes::wait, std::vector<Peregrine::SmallGraph>(), step + 1, std::vector<Domain>());
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
         auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
@@ -266,58 +286,55 @@ int main(int argc, char *argv[])
           pausedClients = 0;
           vecPtr = 0;
           ++step;
-          for (int i = 0; i < freq_patterns.size(); i++)
-          { 
-            if (freq_patterns[i].to_string().compare("[1,1-2,1][1,1-3,1][2,1-4,1]") == 0) {
-              std::cout << freq_patterns[i].to_string() << ": " << supports[i] << std::endl;
-            }
-          }
-          organize_vectors(freq_patterns, supports);
+          // for (int i = 0; i < freq_patterns.size(); i++)
+          // {
+          //   if (freq_patterns[i].to_string().compare("[1,1-2,1][1,1-3,1][2,1-4,1]") == 0)
+          //   {
+          //     std::cout << freq_patterns[i].to_string() << ": " << supports[i] << std::endl;
+          //   }
+          // }
+          organize_vectors<Domain>(freq_patterns, supports);
           // std::cout << "-----------------After Organize----------------" << std::endl;
           // for (int i = 0; i < freq_patterns.size(); i++)
           // {
-          //   std::cout << freq_patterns[i].to_string() << ": " << supports[i] << std::endl;
+          //   std::cout << freq_patterns[i].to_string() << ": " << supports[i].get_support() << std::endl;
           // }
-
-          std::vector<Peregrine::SmallGraph> tmp_patterns;
-          std::vector<unsigned long> tmp_supports;
-          for (int i = 0; i < freq_patterns.size(); ++i)
+          for (int i = 0; i < freq_patterns.size(); i++)
           {
-            if (supports[i] >= threshold)
+            if (supports[i].get_support() >= threshold)
             {
               tmp_patterns.push_back(freq_patterns[i]);
-              tmp_supports.push_back(supports[i]);
+              supports_result.push_back(supports[i].get_support());
             }
           }
-          std::cout << "-----------------After Filter----------------" << std::endl;
-          for (int i = 0; i < tmp_patterns.size(); i++)
-          {
-            std::cout << tmp_patterns[i].to_string() << ": " << tmp_supports[i] << std::endl;
-          }
-          std::cout << "----------------------------------------" << std::endl;
+          // std::cout << "-----------------After Filter----------------" << std::endl;
+          // for (int i = 0; i < tmp_patterns.size(); i++)
+          // {
+          //   std::cout << tmp_patterns[i].to_string() << ": " << supports_result[i] << std::endl;
+          // }
+          // std::cout << "----------------------------------------" << std::endl;
 
-          freq_patterns = tmp_patterns;
-          supports = tmp_supports;
-
-          patterns = Peregrine::PatternGenerator::extend(freq_patterns, extension_strategy);
+          patterns = Peregrine::PatternGenerator::extend(tmp_patterns, extension_strategy);
           if (step < k && !patterns.empty())
           {
             freq_patterns.clear();
             supports.clear();
+            tmp_patterns.clear();
+            supports_result.clear();
           }
         }
       }
       else if (endPos > all_tasks_num)
       {
         auto p = recved_payload.getSmallGraphs();
-        auto supp = recved_payload.getSupport();
+        auto domains = recved_payload.getDomains();
         for (int i = 0; i < p.size(); i++)
         {
           freq_patterns.push_back(p[i]);
-          supports.push_back(supp[i]);
+          supports.push_back(domains[i]);
         }
         std::vector<Peregrine::SmallGraph> sent_vec(patterns.begin(), patterns.end());
-        MsgPayload sent_payload(MsgTypes::transmit, sent_vec, step, std::vector<unsigned long>());
+        MsgPayload sent_payload(MsgTypes::transmit, sent_vec, step, std::vector<Domain>());
         sent_payload.setRange(vecPtr, all_tasks_num);
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
@@ -327,14 +344,14 @@ int main(int argc, char *argv[])
       else
       {
         auto p = recved_payload.getSmallGraphs();
-        auto supp = recved_payload.getSupport();
+        auto domains = recved_payload.getDomains();
         for (int i = 0; i < p.size(); i++)
         {
           freq_patterns.push_back(p[i]);
-          supports.push_back(supp[i]);
+          supports.push_back(domains[i]);
         }
         std::vector<Peregrine::SmallGraph> sent_vec(patterns.begin(), patterns.end());
-        MsgPayload sent_payload(MsgTypes::transmit, sent_vec, step, std::vector<unsigned long>());
+        MsgPayload sent_payload(MsgTypes::transmit, sent_vec, step, std::vector<Domain>());
         sent_payload.setRange(vecPtr, endPos);
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
@@ -345,10 +362,10 @@ int main(int argc, char *argv[])
   }
   auto t2 = utils::get_timestamp();
 
-  std::cout << freq_patterns.size() << " frequent patterns: " << std::endl;
-  for (uint32_t i = 0; i < freq_patterns.size(); ++i)
+  std::cout << tmp_patterns.size() << " frequent patterns: " << std::endl;
+  for (uint32_t i = 0; i < tmp_patterns.size(); ++i)
   {
-    std::cout << freq_patterns[i].to_string() << ": " << supports[i] << std::endl;
+    std::cout << tmp_patterns[i].to_string() << ": " << supports_result[i] << std::endl;
   }
 
   std::cout << "Part 1 finished in " << (t3 - t1) / 1e6 << "s" << std::endl;

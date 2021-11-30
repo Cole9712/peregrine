@@ -27,14 +27,14 @@ private:
   int msgType;
   std::vector<Peregrine::SmallGraph> smGraph;
   int iteration;
-  std::vector<unsigned long> support;
+  std::vector<Domain> domains;
   int startPt;
   int endPt;
   std::string remark;
   template <class Archive>
   void serialize(Archive &a, const unsigned version)
   {
-    a &msgType &smGraph &iteration &support &startPt &endPt &remark;
+    a &msgType &smGraph &iteration &domains &startPt &endPt &remark;
   }
 
 public:
@@ -52,7 +52,7 @@ public:
     return iteration;
   }
 
-  std::vector<unsigned long> getSupport() { return support; }
+  std::vector<Domain> getDomains() { return domains; }
 
   std::string getRemark() { return remark; }
 
@@ -68,14 +68,14 @@ public:
     endPt = end;
   }
 
-  MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, int x, std::vector<unsigned long> s) : msgType(type), smGraph(i), iteration(x), support(s) {}
+  MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, int x, std::vector<Domain> s) : msgType(type), smGraph(i), iteration(x), domains(s) {}
 };
 
 int main(int argc, char *argv[])
 {
   if (argc < 4)
   {
-    std::cerr << "USAGE: " << argv[0] << " <data graph> [# threads] <Master Address>" << std::endl;
+    std::cerr << "USAGE: " << argv[0] << "<data graph> [# threads] <Master Address>" << std::endl;
     return -1;
   }
 
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
   {
     a.map(cm.pattern, cm.mapping);
   };
-  std::vector<uint64_t> supports;
+  std::vector<Domain> supports;
   std::vector<Peregrine::SmallGraph> freq_patterns;
 
   zmq::context_t ctx;
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
   sock.connect(remoteAddr);
 
   // handshake
-  MsgPayload init_payload = MsgPayload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), 0, std::vector<unsigned long>());
+  MsgPayload init_payload = MsgPayload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), 0, std::vector<Domain>());
   std::string init_serial = boost_utils::serialize<MsgPayload>(init_payload);
   zmq::mutable_buffer send_buf = zmq::buffer(init_serial);
   auto res = sock.send(send_buf, zmq::send_flags::none);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
   MsgPayload init_deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
 
   int local_step = 0;
-  MsgPayload sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), local_step, std::vector<unsigned long>());
+  MsgPayload sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), local_step, std::vector<Domain>());
 
   auto t1 = utils::get_timestamp();
   while (true)
@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
     else if (deserialized.getType() == MsgTypes::wait)
     {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), local_step, std::vector<unsigned long>());
+      sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), local_step, std::vector<Domain>());
     }
     else
     {

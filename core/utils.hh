@@ -152,6 +152,6 @@ namespace MsgTypes
     goodbye = 2,
     wait = 3,
   };
-};
+}
 
 #endif
