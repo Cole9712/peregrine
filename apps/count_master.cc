@@ -152,6 +152,12 @@ int main(int argc, char *argv[])
   std::vector<std::string> result_pattern;
   std::vector<uint64_t> result_counts;
 
+  for (int i = 0; i < patterns.size(); i++)
+  {
+    result_pattern.push_back(patterns[i].to_string());
+    result_counts.push_back(0);
+  }
+
   // calculate the buffer size needed for receiving messages from workers
   size_t bufferSize = 100;
   for (const auto &pattern : patterns)
@@ -163,7 +169,7 @@ int main(int argc, char *argv[])
   zmq::message_t recv_msg(bufferSize);
   uint64_t vecPtr = 0;
   auto t1 = utils::get_timestamp();
-  
+
   while (stoppedClients < (*nworkers))
   {
     auto res = sock.recv(recv_msg, zmq::recv_flags::none);
@@ -180,6 +186,14 @@ int main(int argc, char *argv[])
     }
     else if (recved_payload.getType() == MsgTypes::transmit)
     {
+      if (recved_payload.getResult().size() != 0)
+      {
+        auto workerResult = recved_payload.getResult();
+        for (int i = 0; i < workerResult.size(); i++)
+        {
+          result_counts[i] += workerResult[i].second;
+        }
+      }
       int endPos = vecPtr + nTasks;
       if (vecPtr >= num_tasks)
       {
@@ -271,29 +285,12 @@ int main(int argc, char *argv[])
     }
     else
     {
-      // received result from worker
+      // received goodbye from worker
       zmq::message_t msg;
       auto res2 = sock.send(msg, zmq::send_flags::dontwait);
       stoppedClients++;
       utils::Log{} << "stoppedClients++"
                    << "\n";
-      auto workerResult = recved_payload.getResult();
-      // std::cout << recv_msg.to_string() << std::endl;
-      if (result_pattern.size() == 0)
-      {
-        for (int i = 0; i < workerResult.size(); i++)
-        {
-          result_pattern.push_back(workerResult[i].first.to_string());
-          result_counts.push_back(workerResult[i].second);
-        }
-      }
-      else
-      {
-        for (int i = 0; i < workerResult.size(); i++)
-        {
-          result_counts[i] += workerResult[i].second;
-        }
-      }
     }
   }
 

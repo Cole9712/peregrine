@@ -101,11 +101,10 @@ int main(int argc, char *argv[])
   zmq::mutable_buffer transmit_buf = zmq::buffer(sent_serial);
 
   auto t1 = utils::get_timestamp();
+  res = sock.send(transmit_buf, zmq::send_flags::none);
 
   while (true)
   {
-    // request new patterns from master node
-    res = sock.send(transmit_buf, zmq::send_flags::none);
     recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
     MsgPayload deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     std::cout << "Received range:" << deserialized.getStartPt() << "-" << deserialized.getEndPt() << std::endl;
@@ -115,7 +114,6 @@ int main(int argc, char *argv[])
       // send back result, and say bye to server
       MsgPayload resultToSend(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), result);
       std::string serializedResult = boost_utils::serialize<MsgPayload>(resultToSend);
-      // std::cout << serializedResult << std::endl;
       send_buf = zmq::buffer(serializedResult);
       res = sock.send(send_buf, zmq::send_flags::none);
       break;
@@ -123,6 +121,8 @@ int main(int argc, char *argv[])
     else if (deserialized.getType() == MsgTypes::wait)
     {
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      // request new patterns from master node
+      res = sock.send(transmit_buf, zmq::send_flags::none);
     }
     else
     {
@@ -135,17 +135,11 @@ int main(int argc, char *argv[])
         Peregrine::SmallGraph G(data_graph_name);
         tmpResult = Peregrine::count(G, patterns, nthreads, deserialized.getStartPt(), deserialized.getEndPt());
       }
-    }
-    if (result.size() == 0)
-    {
-      result.insert(result.end(), tmpResult.begin(), tmpResult.end());
-    }
-    else
-    {
-      for (int i = 0; i < result.size(); i++)
-      {
-        result[i].second += tmpResult[i].second;
-      }
+      MsgPayload resultToSend(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), tmpResult);
+      resultToSend.setRange(pID, pID);
+      std::string serializedResult = boost_utils::serialize<MsgPayload>(resultToSend);
+      send_buf = zmq::buffer(serializedResult);
+      res = sock.send(send_buf, zmq::send_flags::none);
     }
   }
 
