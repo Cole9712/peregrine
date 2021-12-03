@@ -720,10 +720,10 @@ namespace Peregrine
       agg_thread.join();
     }
 
-    utils::Log{} << "-------match_multi"
-                 << "\n";
-    utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
-                 << "\n";
+    // utils::Log{} << "-------match_multi"
+    //              << "\n";
+    // utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
+    //              << "\n";
 
     return results;
   }
@@ -867,10 +867,10 @@ namespace Peregrine
       agg_thread.join();
     }
 
-    utils::Log{} << "-------match_single"
-                 << "\n";
-    utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
-                 << "\n";
+    // utils::Log{} << "-------match_single"
+    //              << "\n";
+    // utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
+    //              << "\n";
 
     return results;
   }
@@ -1021,10 +1021,10 @@ namespace Peregrine
       agg_thread.join();
     }
 
-    utils::Log{} << "-------match_vector"
-                 << "\n";
-    utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
-                 << "\n";
+    // utils::Log{} << "-------match_vector"
+    //              << "\n";
+    // utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
+    //              << "\n";
 
     return results;
   }

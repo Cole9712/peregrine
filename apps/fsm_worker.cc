@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
 
   int local_step = 0;
   MsgPayload sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), local_step, std::vector<Domain>());
+  utils::timestamp_t time_taken = 0;
 
   auto t1 = utils::get_timestamp();
   while (true)
@@ -119,6 +120,7 @@ int main(int argc, char *argv[])
     zmq::mutable_buffer transmit_buf = zmq::buffer(sent_serial);
     res = sock.send(transmit_buf, zmq::send_flags::none);
     recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
+    auto t3 = utils::get_timestamp();
     MsgPayload deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     local_step = deserialized.getIteration();
     // receive command to end
@@ -137,9 +139,9 @@ int main(int argc, char *argv[])
       freq_patterns.clear();
       supports.clear();
       Peregrine::DataGraph dg(data_graph_name);
-      std::cout << "StartPt: " << deserialized.getStartPt() << " EndPt:" << deserialized.getEndPt() << std::endl;
-      auto psupps = Peregrine::match<Peregrine::Pattern, Domain, Peregrine::AT_THE_END, Peregrine::UNSTOPPABLE>(dg, 
-        deserialized.getSmallGraphs(), nthreads, process, view, deserialized.getStartPt(), deserialized.getEndPt());
+      // std::cout << "StartPt: " << deserialized.getStartPt() << " EndPt:" << deserialized.getEndPt() << std::endl;
+      auto psupps = Peregrine::match<Peregrine::Pattern, Domain, Peregrine::AT_THE_END, Peregrine::UNSTOPPABLE>(dg,
+                                                                                                                deserialized.getSmallGraphs(), nthreads, process, view, deserialized.getStartPt(), deserialized.getEndPt());
 
       for (const auto &[p, supp] : psupps)
       {
@@ -149,12 +151,16 @@ int main(int argc, char *argv[])
       // std::cout << "Vector length: " << freq_patterns.size() << " " << supports.size() << std::endl;
       sent_payload = MsgPayload(MsgTypes::transmit, freq_patterns, local_step, supports);
     }
+    auto t4 = utils::get_timestamp();
+    time_taken += (t4 - t3);
   }
   auto t2 = utils::get_timestamp();
 
   utils::Log{} << "-------"
                << "\n";
-  utils::Log{} << "Time taken: " << (t2 - t1) / 1e6 << "s"
+  utils::Log{} << "Time taken all: " << (t2 - t1) / 1e6 << "s"
+               << "\n";
+  utils::Log{} << "Time taken for matching: " << time_taken / 1e6 << "s"
                << "\n";
 
   return 0;

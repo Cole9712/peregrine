@@ -81,7 +81,7 @@ void organize_vectors(std::vector<Peregrine::SmallGraph> &freq_patterns, std::ve
   freq_patterns.clear();
   support.clear();
 
-  for (int i = 0; i < inputPatterns.size(); i++)
+  for (long unsigned int i = 0; i < inputPatterns.size(); i++)
   {
     str_patterns.push_back(inputPatterns[i].to_string());
   }
@@ -95,7 +95,7 @@ void organize_vectors(std::vector<Peregrine::SmallGraph> &freq_patterns, std::ve
     inputSupport.erase(inputSupport.begin());
     inputPatterns.erase(inputPatterns.begin());
 
-    for (int i = 0; i < str_patterns.size(); i++)
+    for (long unsigned int i = 0; i < str_patterns.size(); i++)
     {
       if (tmpStr.compare(str_patterns[i]) == 0)
       {
@@ -123,14 +123,13 @@ int main(int argc, char *argv[])
 
   uint64_t threshold = std::stoi(argv[3]);
 
-  size_t nworkers;
+  size_t nworkers = 1;
   std::string bindPort;
-  int nPointsPerProcess;
-  int nTasks;
+  int nTasks = 1;
   size_t nthreads = std::thread::hardware_concurrency();
   bool extension_strategy = Peregrine::PatternGenerator::EDGE_BASED;
 
-  uint32_t step = 1;
+  int step = 1;
 
   // decide whether user provided # threads or extension strategy
   if (argc == 7)
@@ -166,6 +165,8 @@ int main(int argc, char *argv[])
     nworkers = std::stoi(argv[5]);
     bindPort = argv[6];
     nTasks = std::stoi(argv[7]);
+  } else {
+    return 0;
   }
 
   const auto view = [](auto &&v)
@@ -205,12 +206,12 @@ int main(int argc, char *argv[])
   organize_vectors<DiscoveryDomain<1>>(freq_patterns, supports_init);
 
   // // For testing: print statistics
-  // for (int i = 0; i < freq_patterns.size(); i++)
+  // for (long unsigned int i = 0; i < freq_patterns.size(); i++)
   // {
   //   std::cout << freq_patterns[i].to_string() << ": " << supports_init[i].get_support() << std::endl;
   // }
 
-  for (int i = 0; i < freq_patterns.size(); i++)
+  for (long unsigned int i = 0; i < freq_patterns.size(); i++)
   {
     if (supports_init[i].get_support() >= threshold)
     {
@@ -242,34 +243,34 @@ int main(int argc, char *argv[])
   all_tasks_num = num_vertices * vgs_count;
   std::cout << "All tasks " << all_tasks_num << std::endl;
 
-  while (stoppedClients < nworkers)
+  while ((size_t)stoppedClients < nworkers)
   {
-    auto res = sock.recv(recv_msg, zmq::recv_flags::none);
+    (void) sock.recv(recv_msg, zmq::recv_flags::none);
     auto recved_payload = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     if (recved_payload.getType() == MsgTypes::handshake)
     {
       MsgPayload sent_payload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), 0, std::vector<Domain>());
       std::string serialized = boost_utils::serialize(sent_payload);
       zmq::mutable_buffer send_buf = zmq::buffer(serialized);
-      auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+      sock.send(send_buf, zmq::send_flags::dontwait);
       connectClients++;
     }
     else if (recved_payload.getType() == MsgTypes::transmit)
     {
       int endPos = vecPtr + nTasks;
-      if (patterns.empty() || step >= k)
+      if (patterns.empty() || (uint32_t)step >= k)
       {
         MsgPayload sent_payload(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), 0, std::vector<Domain>());
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
-        auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+        sock.send(send_buf, zmq::send_flags::dontwait);
         stoppedClients++;
       }
       else if (vecPtr > all_tasks_num)
       {
         auto p = recved_payload.getSmallGraphs();
         auto domains = recved_payload.getDomains();
-        for (int i = 0; i < p.size(); i++)
+        for (long unsigned int i = 0; i < p.size(); i++)
         {
           freq_patterns.push_back(p[i]);
           supports.push_back(domains[i]);
@@ -277,18 +278,18 @@ int main(int argc, char *argv[])
         MsgPayload sent_payload(MsgTypes::wait, std::vector<Peregrine::SmallGraph>(), step + 1, std::vector<Domain>());
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
-        auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+        sock.send(send_buf, zmq::send_flags::dontwait);
 
         if (recved_payload.getIteration() <= step)
         {
           ++pausedClients;
         }
-        if (pausedClients == nworkers)
+        if ((size_t)pausedClients == nworkers)
         {
           pausedClients = 0;
           vecPtr = 0;
           ++step;
-          // for (int i = 0; i < freq_patterns.size(); i++)
+          // for (long unsigned int i = 0; i < freq_patterns.size(); i++)
           // {
           //   if (freq_patterns[i].to_string().compare("[1,1-2,1][1,1-3,1][2,1-4,1]") == 0)
           //   {
@@ -297,11 +298,11 @@ int main(int argc, char *argv[])
           // }
           organize_vectors<Domain>(freq_patterns, supports);
           // std::cout << "-----------------After Organize----------------" << std::endl;
-          // for (int i = 0; i < freq_patterns.size(); i++)
+          // for (long unsigned int i = 0; i < freq_patterns.size(); i++)
           // {
           //   std::cout << freq_patterns[i].to_string() << ": " << supports[i].get_support() << std::endl;
           // }
-          for (int i = 0; i < freq_patterns.size(); i++)
+          for (long unsigned int i = 0; i < freq_patterns.size(); i++)
           {
             if (supports[i].get_support() >= threshold)
             {
@@ -310,14 +311,14 @@ int main(int argc, char *argv[])
             }
           }
           // std::cout << "-----------------After Filter----------------" << std::endl;
-          // for (int i = 0; i < tmp_patterns.size(); i++)
+          // for (long unsigned int i = 0; i < tmp_patterns.size(); i++)
           // {
           //   std::cout << tmp_patterns[i].to_string() << ": " << supports_result[i] << std::endl;
           // }
           // std::cout << "----------------------------------------" << std::endl;
 
           patterns = Peregrine::PatternGenerator::extend(tmp_patterns, extension_strategy);
-          if (step < k && !patterns.empty())
+          if ((uint32_t)step < k && !patterns.empty())
           {
             freq_patterns.clear();
             supports.clear();
@@ -326,11 +327,11 @@ int main(int argc, char *argv[])
           }
         }
       }
-      else if (endPos > all_tasks_num)
+      else if ((uint64_t)endPos > all_tasks_num)
       {
         auto p = recved_payload.getSmallGraphs();
         auto domains = recved_payload.getDomains();
-        for (int i = 0; i < p.size(); i++)
+        for (long unsigned int i = 0; i < p.size(); i++)
         {
           freq_patterns.push_back(p[i]);
           supports.push_back(domains[i]);
@@ -340,14 +341,14 @@ int main(int argc, char *argv[])
         sent_payload.setRange(vecPtr, all_tasks_num);
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
-        auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+        sock.send(send_buf, zmq::send_flags::dontwait);
         vecPtr += nTasks;
       }
       else
       {
         auto p = recved_payload.getSmallGraphs();
         auto domains = recved_payload.getDomains();
-        for (int i = 0; i < p.size(); i++)
+        for (long unsigned int i = 0; i < p.size(); i++)
         {
           freq_patterns.push_back(p[i]);
           supports.push_back(domains[i]);
@@ -357,7 +358,7 @@ int main(int argc, char *argv[])
         sent_payload.setRange(vecPtr, endPos);
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
-        auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+        sock.send(send_buf, zmq::send_flags::dontwait);
         vecPtr += nTasks;
       }
     }
@@ -370,7 +371,7 @@ int main(int argc, char *argv[])
     std::cout << tmp_patterns[i].to_string() << ": " << supports_result[i] << std::endl;
   }
 
-  std::cout << "Part 1 finished in " << (t3 - t1) / 1e6 << "s" << std::endl;
-  std::cout << "Part 2 finished in " << (t2 - t3) / 1e6 << "s" << std::endl;
+  std::cout << "Initial Discovery finished in " << (t3 - t1) / 1e6 << "s" << std::endl;
+  std::cout << "Matching finished in " << (t2 - t3) / 1e6 << "s" << std::endl;
   return 0;
 }
