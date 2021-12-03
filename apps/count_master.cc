@@ -29,11 +29,12 @@ private:
   std::vector<Peregrine::SmallGraph> smGraph;
   int startPt;
   int endPt;
+  std::string remark;
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
   template <class Archive>
   void serialize(Archive &a, const unsigned version)
   {
-    a &msgType &smGraph &startPt &endPt &result;
+    a &msgType &smGraph &startPt &endPt &result &remark;
   }
 
 public:
@@ -55,6 +56,10 @@ public:
     startPt = start;
     endPt = end;
   }
+
+  void setRemark(const std::string input) { remark = input; }
+
+  std::string getRemark() { return remark; }
 
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> getResult() { return result; }
 
@@ -182,6 +187,7 @@ int main(int argc, char *argv[])
       MsgPayload sent_payload(MsgTypes::handshake, patterns, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
       // set pID for incoming worker
       sent_payload.setRange(pCtr.size(), 0);
+      sent_payload.setRemark(data_graph_name);
       pCtr.push_back(0);
       std::string serialized = boost_utils::serialize(sent_payload);
       zmq::mutable_buffer send_buf = zmq::buffer(serialized);

@@ -26,11 +26,12 @@ private:
   std::vector<Peregrine::SmallGraph> smGraph;
   int startPt;
   int endPt;
+  std::string remark;
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
   template <class Archive>
   void serialize(Archive &a, const unsigned version)
   {
-    a &msgType &smGraph &startPt &endPt &result;
+    a &msgType &smGraph &startPt &endPt &result &remark;
   }
 
 public:
@@ -53,6 +54,10 @@ public:
     endPt = end;
   }
 
+  void setRemark(const std::string input) { remark = input; }
+
+  std::string getRemark() { return remark; }
+
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> getResult() { return result; }
 
   MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result) : msgType(type), smGraph(i), result(result) {}
@@ -70,13 +75,13 @@ int main(int argc, char *argv[])
 {
   if (argc < 3)
   {
-    std::cerr << "USAGE: " << argv[0] << " <data graph> [# threads] <Master Address>" << std::endl;
+    std::cerr << "USAGE: " << argv[0] << "[# threads] <Master Address>" << std::endl;
     return -1;
   }
 
-  const std::string data_graph_name(argv[1]);
-  size_t nthreads = argc < 3 ? 1 : std::stoi(argv[2]);
-  const std::string remoteAddr(argv[3]);
+  std::string data_graph_name = "";
+  size_t nthreads = argc < 2 ? 1 : std::stoi(argv[1]);
+  const std::string remoteAddr(argv[2]);
   int pID = 0;
 
   zmq::context_t ctx;
@@ -93,6 +98,7 @@ int main(int argc, char *argv[])
   MsgPayload handshake_deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
   auto patterns = handshake_deserialized.getSmallGraphs();
   pID = handshake_deserialized.getStartPt();
+  data_graph_name = handshake_deserialized.getRemark();
 
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> tmpResult;
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;

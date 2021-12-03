@@ -75,15 +75,15 @@ public:
 
 int main(int argc, char *argv[])
 {
-  if (argc < 4)
+  if (argc < 3)
   {
-    std::cerr << "USAGE: " << argv[0] << "<data graph> [# threads] <Master Address>" << std::endl;
+    std::cerr << "USAGE: " << argv[0] << "[# threads] <Master Address>" << std::endl;
     return -1;
   }
 
-  const std::string data_graph_name(argv[1]);
-  size_t nthreads = argc < 3 ? 1 : std::stoi(argv[2]);
-  const std::string remoteAddr(argv[3]);
+  std::string data_graph_name = "";
+  size_t nthreads = argc < 2 ? 1 : std::stoi(argv[1]);
+  const std::string remoteAddr(argv[2]);
 
   const auto view = [](auto &&v)
   { return v.get_support(); };
@@ -107,6 +107,7 @@ int main(int argc, char *argv[])
   zmq::message_t recv_msg(2048);
   auto recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
   MsgPayload init_deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
+  data_graph_name = init_deserialized.getRemark();
 
   int local_step = 0;
   MsgPayload sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), local_step, std::vector<Domain>());

@@ -250,6 +250,7 @@ int main(int argc, char *argv[])
     if (recved_payload.getType() == MsgTypes::handshake)
     {
       MsgPayload sent_payload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), 0, std::vector<Domain>());
+      sent_payload.setRemark(data_graph_name);
       std::string serialized = boost_utils::serialize(sent_payload);
       zmq::mutable_buffer send_buf = zmq::buffer(serialized);
       sock.send(send_buf, zmq::send_flags::dontwait);
