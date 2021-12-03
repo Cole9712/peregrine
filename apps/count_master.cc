@@ -302,7 +302,7 @@ int main(int argc, char *argv[])
 
   utils::Log{} << "-------"
                << "\n";
-  utils::Log{} << "all patterns finished after " << (t2 - t1) / 1e6 << "s"
+  utils::Log{} << "Time taken for master: " << (t2 - t1) / 1e6 << "s"
                << "\n";
 
   for (long unsigned int i = 0; i < result_pattern.size(); i++)

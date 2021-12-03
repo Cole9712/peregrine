@@ -102,12 +102,14 @@ int main(int argc, char *argv[])
   std::string sent_serial = boost_utils::serialize<MsgPayload>(sent_payload);
   zmq::mutable_buffer transmit_buf = zmq::buffer(sent_serial);
 
+  utils::timestamp_t time_taken = 0;
   auto t1 = utils::get_timestamp();
   res = sock.send(transmit_buf, zmq::send_flags::none);
 
   while (true)
   {
     recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
+    auto t3 = utils::get_timestamp();
     MsgPayload deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     std::cout << "Received range:" << deserialized.getStartPt() << "-" << deserialized.getEndPt() << std::endl;
     // receive command to end
@@ -143,6 +145,8 @@ int main(int argc, char *argv[])
       send_buf = zmq::buffer(serializedResult);
       res = sock.send(send_buf, zmq::send_flags::none);
     }
+    auto t4 = utils::get_timestamp();
+    time_taken += (t4 - t3);
   }
 
   std::cout << "Result has been sent to server." << std::endl;
@@ -153,6 +157,8 @@ int main(int argc, char *argv[])
   utils::Log{} << "-------"
                << "\n";
   utils::Log{} << "Time taken: " << (t2 - t1) / 1e6 << "s"
+               << "\n";
+  utils::Log{} << "Time taken for counting: " << time_taken / 1e6 << "s"
                << "\n";
 
   return 0;

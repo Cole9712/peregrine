@@ -615,7 +615,7 @@ namespace Peregrine
     // make sure the threads are all running
     barrier.join();
 
-    auto t1 = utils::get_timestamp();
+    // auto t1 = utils::get_timestamp();
     for (const auto &p : patterns)
     {
       // set new pattern
@@ -707,7 +707,7 @@ namespace Peregrine
         }
       }
     }
-    auto t2 = utils::get_timestamp();
+    // auto t2 = utils::get_timestamp();
 
     barrier.finish();
     for (auto &th : pool)
@@ -772,7 +772,7 @@ namespace Peregrine
     // make sure the threads are all running
     barrier.join();
 
-    auto t1 = utils::get_timestamp();
+    // auto t1 = utils::get_timestamp();
     for (const auto &p : patterns)
     {
       // set new pattern
@@ -854,7 +854,7 @@ namespace Peregrine
         results.emplace_back(p, v);
       }
     }
-    auto t2 = utils::get_timestamp();
+    // auto t2 = utils::get_timestamp();
 
     barrier.finish();
     for (auto &th : pool)
@@ -919,7 +919,7 @@ namespace Peregrine
     // make sure the threads are all running
     barrier.join();
 
-    auto t1 = utils::get_timestamp();
+    // auto t1 = utils::get_timestamp();
     for (const auto &p : patterns)
     {
       // set new pattern
@@ -1008,7 +1008,7 @@ namespace Peregrine
         l += 1;
       }
     }
-    auto t2 = utils::get_timestamp();
+    // auto t2 = utils::get_timestamp();
 
     barrier.finish();
     for (auto &th : pool)
