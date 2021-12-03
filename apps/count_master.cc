@@ -2,6 +2,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zmq.hpp>
+#include <thread>
+#include <atomic>
+#include <algorithm>
 
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
@@ -56,12 +59,45 @@ public:
   MsgPayload(int type, std::vector<Peregrine::SmallGraph> i, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result) : msgType(type), smGraph(i), result(result) {}
 };
 
+class zmq_monitor_t : public zmq::monitor_t
+{
+public:
+  std::vector<std::string> connectionList;
+  int *nworkers;
+  zmq_monitor_t(int *nworkers)
+  {
+    this->nworkers = nworkers;
+  }
+
+  void on_event_disconnected(const zmq_event_t &event,
+                             const char *addr) override
+  {
+    std::cout << "got disconnected from " << addr << std::endl;
+    connectionList.erase(std::remove(connectionList.begin(), connectionList.end(), addr), connectionList.end());
+    (*nworkers)--;
+  }
+  void on_event_accepted(const zmq_event_t &event,
+                         const char *addr) override
+  {
+    std::cout << "got connection from " << addr << std::endl;
+    connectionList.push_back(addr);
+  }
+};
+
 bool is_directory(const std::string &path)
 {
   struct stat statbuf;
   if (stat(path.c_str(), &statbuf) != 0)
     return 0;
   return S_ISDIR(statbuf.st_mode);
+}
+
+void detectFailure(zmq_monitor_t &monitor, bool &tasksSoldOut)
+{
+  while (!tasksSoldOut)
+  {
+    monitor.check_event(100);
+  }
 }
 
 int main(int argc, char *argv[])
@@ -74,13 +110,22 @@ int main(int argc, char *argv[])
 
   const std::string data_graph_name(argv[1]);
   const std::string pattern_name(argv[2]);
-  size_t nworkers = std::stoi(argv[3]);
+  int *nworkers = new int(0);
+  (*nworkers) = std::stoi(argv[3]);
   const std::string bindPort(argv[4]);
   int nTasks = std::stoi(argv[5]);
+  int stoppedClients = 0;
+  std::vector<uint64_t> pCtr;
+  bool tasksSoldOut = false;
 
   zmq::context_t ctx;
   zmq::socket_t sock(ctx, zmq::socket_type::rep);
   sock.bind("tcp://*:" + bindPort);
+
+  zmq_monitor_t mon(nworkers);
+  mon.init(sock, "inproc://connectmon", ZMQ_EVENT_ALL);
+
+  auto monitorThread = std::thread(detectFailure, std::ref(mon), std::ref(tasksSoldOut));
 
   std::vector<Peregrine::SmallGraph> patterns;
   if (auto end = pattern_name.rfind("motifs"); end != std::string::npos)
@@ -108,48 +153,116 @@ int main(int argc, char *argv[])
   std::vector<uint64_t> result_counts;
 
   // calculate the buffer size needed for receiving messages from workers
-  
-  zmq::message_t recv_msg(2048);
-  int connectClients = 0;
-  int stoppedClients = 0;
+  size_t bufferSize = 100;
+  for (const auto &pattern : patterns)
+  {
+    bufferSize += sizeof(pattern);
+    bufferSize += 10;
+  }
+
+  zmq::message_t recv_msg(bufferSize);
   uint64_t vecPtr = 0;
-  bool tasksSoldOut = false;
   auto t1 = utils::get_timestamp();
-  while (stoppedClients < nworkers)
+  
+  while (stoppedClients < (*nworkers))
   {
     auto res = sock.recv(recv_msg, zmq::recv_flags::none);
     auto recved_payload = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     if (recved_payload.getType() == MsgTypes::handshake)
     {
       MsgPayload sent_payload(MsgTypes::handshake, patterns, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+      // set pID for incoming worker
+      sent_payload.setRange(pCtr.size(), 0);
+      pCtr.push_back(0);
       std::string serialized = boost_utils::serialize(sent_payload);
       zmq::mutable_buffer send_buf = zmq::buffer(serialized);
       auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
-      connectClients++;
     }
     else if (recved_payload.getType() == MsgTypes::transmit)
     {
       int endPos = vecPtr + nTasks;
-      if (tasksSoldOut)
+      if (vecPtr >= num_tasks)
       {
-        MsgPayload sent_payload(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
-        std::string serialized = boost_utils::serialize(sent_payload);
-        zmq::mutable_buffer send_buf = zmq::buffer(serialized);
-        auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+        if ((*nworkers) == pCtr.size() && tasksSoldOut)
+        {
+          MsgPayload sent_payload(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+          std::string serialized = boost_utils::serialize(sent_payload);
+          zmq::mutable_buffer send_buf = zmq::buffer(serialized);
+          auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+        }
+        else
+        {
+          // check which process fails
+          pCtr[recved_payload.getStartPt()] = -1;
+          int failedClientPos;
+          int pausedClients = 0;
+          for (int i = 0; i < pCtr.size(); ++i)
+          {
+            if (pCtr[i] == -1)
+            {
+              pausedClients++;
+            }
+            else
+            {
+              failedClientPos = i;
+            }
+          }
+
+          if ((*nworkers) == pausedClients)
+          {
+            if (pausedClients == pCtr.size())
+            {
+              tasksSoldOut = true;
+              // wait for monitor thread to exit
+              std::this_thread::sleep_for(std::chrono::milliseconds(100));
+              MsgPayload sent_payload(MsgTypes::goodbye, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+              std::string serialized = boost_utils::serialize(sent_payload);
+              zmq::mutable_buffer send_buf = zmq::buffer(serialized);
+              auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+            }
+            else
+            {
+              pCtr[recved_payload.getStartPt()] = pCtr[failedClientPos];
+              pCtr.erase(pCtr.begin() + failedClientPos);
+
+              MsgPayload sent_payload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+              if (pCtr[recved_payload.getStartPt()] + nTasks > num_tasks)
+              {
+                sent_payload.setRange(pCtr[recved_payload.getStartPt()], num_tasks);
+              }
+              else
+              {
+                sent_payload.setRange(pCtr[recved_payload.getStartPt()], pCtr[recved_payload.getStartPt()] + nTasks);
+              }
+              std::string serialized = boost_utils::serialize(sent_payload);
+              zmq::mutable_buffer send_buf = zmq::buffer(serialized);
+              auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+            }
+          }
+          else
+          {
+            MsgPayload sent_payload(MsgTypes::wait, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+            std::string serialized = boost_utils::serialize(sent_payload);
+            zmq::mutable_buffer send_buf = zmq::buffer(serialized);
+            auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+          }
+        }
       }
       else if (endPos >= num_tasks)
       {
-        tasksSoldOut = true;
         MsgPayload sent_payload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
         sent_payload.setRange(vecPtr, num_tasks);
+        pCtr[recved_payload.getStartPt()] = vecPtr;
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
         auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
+        vecPtr += nTasks;
       }
       else
       {
         MsgPayload sent_payload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
         sent_payload.setRange(vecPtr, endPos);
+        pCtr[recved_payload.getStartPt()] = vecPtr;
         std::string serialized = boost_utils::serialize(sent_payload);
         zmq::mutable_buffer send_buf = zmq::buffer(serialized);
         auto res2 = sock.send(send_buf, zmq::send_flags::dontwait);
@@ -173,7 +286,9 @@ int main(int argc, char *argv[])
           result_pattern.push_back(workerResult[i].first.to_string());
           result_counts.push_back(workerResult[i].second);
         }
-      } else {
+      }
+      else
+      {
         for (int i = 0; i < workerResult.size(); i++)
         {
           result_counts[i] += workerResult[i].second;
@@ -193,6 +308,8 @@ int main(int argc, char *argv[])
   {
     std::cout << result_pattern[i] << ": " << result_counts[i] << std::endl;
   }
+
+  monitorThread.join();
   // for (int i = 0; i < result.size(); i++) {
   //   std::cout << result[i].first << ": " << reduced_sum[i] << std::endl;
   // }

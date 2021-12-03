@@ -28,7 +28,7 @@ private:
   template <class Archive>
   void serialize(Archive &a, const unsigned version)
   {
-    a & msgType &smGraph &startPt &endPt &result;
+    a &msgType &smGraph &startPt &endPt &result;
   }
 
 public:
@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
   const std::string data_graph_name(argv[1]);
   size_t nthreads = argc < 3 ? 1 : std::stoi(argv[2]);
   const std::string remoteAddr(argv[3]);
+  int pID = 0;
 
   zmq::context_t ctx;
   zmq::socket_t sock(ctx, zmq::socket_type::req);
@@ -89,21 +90,25 @@ int main(int argc, char *argv[])
   auto recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
   MsgPayload handshake_deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
   auto patterns = handshake_deserialized.getSmallGraphs();
+  pID = handshake_deserialized.getStartPt();
 
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> tmpResult;
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
   MsgPayload sent_payload = MsgPayload(MsgTypes::transmit, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+  // send pID along with request message
+  sent_payload.setRange(pID, pID);
   std::string sent_serial = boost_utils::serialize<MsgPayload>(sent_payload);
   zmq::mutable_buffer transmit_buf = zmq::buffer(sent_serial);
 
   auto t1 = utils::get_timestamp();
+
   while (true)
   {
     // request new patterns from master node
     res = sock.send(transmit_buf, zmq::send_flags::none);
     recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
     MsgPayload deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
-    // std::cout << "Received range:" << deserialized.getStartPt() << "-" << deserialized.getEndPt() << std::endl;
+    std::cout << "Received range:" << deserialized.getStartPt() << "-" << deserialized.getEndPt() << std::endl;
     // receive command to end
     if (deserialized.getType() == MsgTypes::goodbye)
     {
@@ -114,6 +119,10 @@ int main(int argc, char *argv[])
       send_buf = zmq::buffer(serializedResult);
       res = sock.send(send_buf, zmq::send_flags::none);
       break;
+    }
+    else if (deserialized.getType() == MsgTypes::wait)
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     else
     {
@@ -127,16 +136,21 @@ int main(int argc, char *argv[])
         tmpResult = Peregrine::count(G, patterns, nthreads, deserialized.getStartPt(), deserialized.getEndPt());
       }
     }
-    if (result.size() == 0) {
+    if (result.size() == 0)
+    {
       result.insert(result.end(), tmpResult.begin(), tmpResult.end());
-    } else {
-      for (int i = 0; i < result.size(); i++) {
+    }
+    else
+    {
+      for (int i = 0; i < result.size(); i++)
+      {
         result[i].second += tmpResult[i].second;
       }
     }
   }
 
   std::cout << "Result has been sent to server." << std::endl;
+  sock.close();
 
   auto t2 = utils::get_timestamp();
 
