@@ -121,7 +121,6 @@ int main(int argc, char *argv[])
     zmq::mutable_buffer transmit_buf = zmq::buffer(sent_serial);
     res = sock.send(transmit_buf, zmq::send_flags::none);
     recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
-    auto t3 = utils::get_timestamp();
     MsgPayload deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     local_step = deserialized.getIteration();
     // receive command to end
@@ -137,6 +136,7 @@ int main(int argc, char *argv[])
     else
     {
       // std::cout << "Pattern vector length: " << deserialized.getSmallGraphs().size() << std::endl;
+      auto t3 = utils::get_timestamp();
       freq_patterns.clear();
       supports.clear();
       Peregrine::DataGraph dg(data_graph_name);
@@ -151,9 +151,9 @@ int main(int argc, char *argv[])
       }
       // std::cout << "Vector length: " << freq_patterns.size() << " " << supports.size() << std::endl;
       sent_payload = MsgPayload(MsgTypes::transmit, freq_patterns, local_step, supports);
+      auto t4 = utils::get_timestamp();
+      time_taken += (t4 - t3);
     }
-    auto t4 = utils::get_timestamp();
-    time_taken += (t4 - t3);
   }
   auto t2 = utils::get_timestamp();
 

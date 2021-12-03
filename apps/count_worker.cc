@@ -120,7 +120,6 @@ int main(int argc, char *argv[])
   while (true)
   {
     recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
-    auto t3 = utils::get_timestamp();
     MsgPayload deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     std::cout << "Received range:" << deserialized.getStartPt() << "-" << deserialized.getEndPt() << std::endl;
     // receive command to end
@@ -141,6 +140,7 @@ int main(int argc, char *argv[])
     }
     else
     {
+      auto t3 = utils::get_timestamp();
       if (is_directory(data_graph_name))
       {
         tmpResult = Peregrine::count(data_graph_name, patterns, nthreads, deserialized.getStartPt(), deserialized.getEndPt());
@@ -155,9 +155,9 @@ int main(int argc, char *argv[])
       std::string serializedResult = boost_utils::serialize<MsgPayload>(resultToSend);
       send_buf = zmq::buffer(serializedResult);
       res = sock.send(send_buf, zmq::send_flags::none);
+      auto t4 = utils::get_timestamp();
+      time_taken += (t4 - t3);
     }
-    auto t4 = utils::get_timestamp();
-    time_taken += (t4 - t3);
   }
 
   std::cout << "Result has been sent to server." << std::endl;
