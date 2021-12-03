@@ -1,3 +1,5 @@
+// Suppress Boost serialization unused parameter warning
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>

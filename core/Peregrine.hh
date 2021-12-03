@@ -1050,50 +1050,6 @@ namespace Peregrine
     return vbased;
   }
 
-  std::vector<SmallGraph>
-  getNewPatterns(const std::vector<SmallGraph> &patterns)
-  {
-    uint32_t sz = patterns.front().num_vertices();
-    auto is_same_size = [&sz](const SmallGraph &p)
-    {
-      return p.num_vertices() == sz && p.num_anti_vertices() == 0;
-    };
-    auto is_unlabelled = [&sz](const SmallGraph &p)
-    {
-      return p.get_labelling() == Graph::UNLABELLED;
-    };
-    auto is_vinduced = [](const SmallGraph &p)
-    {
-      uint32_t m = p.num_anti_edges() + p.num_true_edges();
-      uint32_t n = p.num_vertices();
-      return m == (n * (n - 1)) / 2;
-    };
-    uint32_t num_possible_topologies[] = {
-        0,
-        1,
-        1,
-        2,      // size 3
-        6,      // size 4
-        21,     // size 5
-        112,    // size 6
-        853,    // size 7
-        11117,  // size 8
-        261080, // size 9
-    };
-    bool must_convert_counts = false;
-    std::vector<SmallGraph> new_patterns;
-    if (std::all_of(patterns.cbegin(), patterns.cend(), is_same_size) && std::all_of(patterns.cbegin(), patterns.cend(), is_unlabelled) && std::all_of(patterns.cbegin(), patterns.cend(), is_vinduced) && (sz < 10 && patterns.size() == num_possible_topologies[sz]))
-    {
-      must_convert_counts = true;
-      new_patterns = PatternGenerator::all(sz, PatternGenerator::VERTEX_BASED, PatternGenerator::EXCLUDE_ANTI_EDGES);
-    }
-    else
-    {
-      new_patterns.assign(patterns.cbegin(), patterns.cend());
-    }
-    return new_patterns;
-  }
-
   template <typename DataGraphT>
   std::vector<std::pair<SmallGraph, uint64_t>>
   count(DataGraphT &&data_graph, const std::vector<SmallGraph> &patterns, uint32_t nworkers, int startPt = -1, int endPt = -1)
