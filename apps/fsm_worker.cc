@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
   std::string init_serial = boost_utils::serialize<MsgPayload>(init_payload);
   zmq::mutable_buffer send_buf = zmq::buffer(init_serial);
   auto res = sock.send(send_buf, zmq::send_flags::none);
-  zmq::message_t recv_msg(2048);
+  zmq::message_t recv_msg(50000);
   auto recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
   MsgPayload init_deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
   data_graph_name = init_deserialized.getRemark();

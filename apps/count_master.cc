@@ -184,14 +184,19 @@ int main(int argc, char *argv[])
     auto recved_payload = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
     if (recved_payload.getType() == MsgTypes::handshake)
     {
-      MsgPayload sent_payload(MsgTypes::handshake, patterns, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+      MsgPayload sent_payload(MsgTypes::handshake, std::vector<Peregrine::SmallGraph>(), std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
       // set pID for incoming worker
-      sent_payload.setRange(pCtr.size(), 0);
+      sent_payload.setRange(pCtr.size(), bufferSize);
       sent_payload.setRemark(data_graph_name);
       pCtr.push_back(0);
       std::string serialized = boost_utils::serialize(sent_payload);
       zmq::mutable_buffer send_buf = zmq::buffer(serialized);
-      sock.send(send_buf, zmq::send_flags::dontwait);
+      sock.send(send_buf, zmq::send_flags::sndmore);
+
+      MsgPayload sent_payload2(MsgTypes::handshake, patterns, std::vector<std::pair<Peregrine::SmallGraph, uint64_t>>());
+      std::string serialized2 = boost_utils::serialize(sent_payload2);
+      zmq::mutable_buffer send_buf2 = zmq::buffer(serialized2);
+      sock.send(send_buf2, zmq::send_flags::dontwait);
     }
     else if (recved_payload.getType() == MsgTypes::transmit)
     {

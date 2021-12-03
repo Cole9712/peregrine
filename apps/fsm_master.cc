@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
   int stoppedClients = 0;
   int pausedClients = 0;
   uint64_t vecPtr = 0;
-  zmq::message_t recv_msg(20000);
+  zmq::message_t recv_msg(50000);
 
   vgs_count = dgv->get_vgs_count();
   num_vertices = dgv->get_vertex_count();

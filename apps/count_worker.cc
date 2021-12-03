@@ -96,9 +96,14 @@ int main(int argc, char *argv[])
   zmq::message_t recv_msg(2048);
   auto recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
   MsgPayload handshake_deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
-  auto patterns = handshake_deserialized.getSmallGraphs();
   pID = handshake_deserialized.getStartPt();
   data_graph_name = handshake_deserialized.getRemark();
+  auto bufferSize = handshake_deserialized.getEndPt();
+  recv_msg.rebuild(bufferSize);
+  recv_res = sock.recv(recv_msg, zmq::recv_flags::none);
+  handshake_deserialized = boost_utils::deserialize<MsgPayload>(recv_msg.to_string());
+  auto patterns = handshake_deserialized.getSmallGraphs();
+  
 
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> tmpResult;
   std::vector<std::pair<Peregrine::SmallGraph, uint64_t>> result;
