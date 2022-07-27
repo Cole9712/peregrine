@@ -4,15 +4,15 @@
 
 ![tests](https://github.com/pdclab/peregrine/workflows/tests/badge.svg)
 
-Peregrine is an efficient, single-machine system for performing data mining tasks on large graphs. Some graph mining applications include:
+Peregrine is an efficient, single-machine system performing data mining tasks on large graphs. Some graph mining applications include:
 * Finding frequent subgraphs
 * Generating the motif/graphlet distribution
 * Finding all occurrences of a subgraph
 
-Peregrine is highly programmable, so you can easily develop your own graph mining applications using its novel, declarative, graph-pattern-centric API.
-To write a Peregrine program, you describe which graph patterns you are interested in mining, and what to do with each occurrence of those patterns. You provide the _what_ and the runtime handles the _how_.
+Peregrine is highly programmable, so you can quickly develop your graph mining applications using its novel, declarative, graph-pattern-centric API.
+To write a Peregrine program, you describe which graph patterns you are interested in mining and what to do with each occurrence of those patterns. You provide the _what_ and the runtime handles the _how_.
 
-For full details, you can read our paper published in [EuroSys 2020](https://dl.acm.org/doi/abs/10.1145/3342195.3387548) or the longer version on [arXiv](https://arxiv.org/abs/2004.02369). For a deeper look at optimizations under the hood, check out our article in the [2021 ACM Operating Systems Review](https://dl.acm.org/doi/abs/10.1145/3469379.3469381).
+For full details, you can read our paper published in [EuroSys 2020](https://dl.acm.org/doi/abs/10.1145/3342195.3387548) or the more extended version on [arXiv](https://arxiv.org/abs/2004.02369). For a deeper look at optimizations under the hood, check out our article in the [2021 ACM Operating Systems Review](https://dl.acm.org/doi/abs/10.1145/3469379.3469381).
 
 For an in-depth summary, watch the video presentation:
 
@@ -144,13 +144,13 @@ bits(v1)bits(v2)...bits(vn)...
 ```
 
 ## 2. Writing your own programs
+In Peregrine's programming model, you provide
+* a data graph,
+* a set of patterns you're interested in, and
+* a callback the system will apply to each occurrence of these patterns in your data graph.
+We present a brief overview of the API here, beginning with constructing patterns.
 
-In Peregrine's programming model, you provide a data graph, a set of patterns
-you're interested in, and a callback the system will apply to each occurrence
-of these patterns in your data graph. We present a brief overview of the API
-here, beginning with constructing patterns.
-
-For all of the following code snippets, assume we are `using namespace Peregrine`.
+For the following code snippets, assume we are `using namespace Peregrine`.
 
 We have not released support for directed graphs yet; the code currently
 assumes all graphs are undirected.
@@ -167,10 +167,10 @@ Given a file in the following edge-list format:
 <vertex-id> [label] <vertex-id> [label]
 ```
 
-where the `label`'s are optional 32-bit integers and vertex ids are contiguous
+Where the `label`'s are optional 32-bit integers and vertex ids are contiguous
 integers starting from 1. To indicate a vertex is unlabelled in a
-partially-labelled pattern, assign it label `-1`. To indicate an anti-edge, any
-extra integer can be placed at the end of the line.
+partially-labeled pattern, assign it the label `-1`. Any
+extra integer can be placed at the end of the line to indicate an anti-edge.
 
 For example, a triangle:
 
